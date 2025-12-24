@@ -1,0 +1,85 @@
+services:
+  app:
+    image: ghcr.io/bytecavesolutions/aithen:latest
+    container_name: aithen-app
+    restart: unless-stopped
+    ports:
+      - "${APP_PORT:-3000}:3000"
+    volumes:
+      - ./data:/app/data
+      - ./certs:/app/certs
+    environment:
+      # Database
+      DATABASE_URL: ${DATABASE_URL}
+      
+      # Auth
+      JWT_SECRET: ${JWT_SECRET}
+      SESSION_EXPIRY_DAYS: ${SESSION_EXPIRY_DAYS:-7}
+      
+      # WebAuthn/Passkey Configuration
+      NEXT_PUBLIC_APP_NAME: ${NEXT_PUBLIC_APP_NAME}
+      NEXT_PUBLIC_RP_ID: ${NEXT_PUBLIC_RP_ID}
+      NEXT_PUBLIC_ORIGIN: ${NEXT_PUBLIC_ORIGIN}
+      
+      # Docker Registry Configuration
+      REGISTRY_URL: ${REGISTRY_URL:-http://registry:5000}
+      REGISTRY_PORT: ${REGISTRY_PORT:-5000}
+      REGISTRY_SERVICE_NAME: ${REGISTRY_SERVICE_NAME:-aithen-registry}
+      REGISTRY_TOKEN_ISSUER: ${REGISTRY_TOKEN_ISSUER:-aithen-auth}
+      REGISTRY_TOKEN_EXPIRY: ${REGISTRY_TOKEN_EXPIRY:-300}
+      
+      # Token authentication certificates
+      REGISTRY_PRIVATE_KEY_PATH: ${REGISTRY_PRIVATE_KEY_PATH:-./certs/registry.key}
+      REGISTRY_PUBLIC_CERT_PATH: ${REGISTRY_PUBLIC_CERT_PATH:-./certs/registry.crt}
+      
+      # Registry auth realm (token service endpoint)
+      REGISTRY_AUTH_REALM: ${REGISTRY_AUTH_REALM}
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost:3000/api/registry/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+    networks:
+      - aithen-network
+
+  registry:
+    image: registry:3
+    container_name: aithen-registry
+    restart: unless-stopped
+    ports:
+      - "${REGISTRY_PORT:-5000}:5000"
+    volumes:
+      - registry_data:/var/lib/registry
+      - ./certs:/certs:ro
+    environment:
+      REGISTRY_LOG_LEVEL: ${REGISTRY_LOG_LEVEL:-info}
+      REGISTRY_LOG_FIELDS_SERVICE: registry
+      REGISTRY_STORAGE_FILESYSTEM_ROOTDIRECTORY: /var/lib/registry
+      REGISTRY_STORAGE_DELETE_ENABLED: "true"
+      REGISTRY_HTTP_ADDR: :5000
+      REGISTRY_HTTP_HEADERS_X-Content-Type-Options: "[nosniff]"
+      REGISTRY_HTTP_HEADERS_Access-Control-Allow-Origin: "['*']"
+      REGISTRY_HTTP_HEADERS_Access-Control-Allow-Methods: "['GET', 'HEAD', 'POST', 'PUT', 'DELETE', 'OPTIONS']"
+      REGISTRY_HTTP_HEADERS_Access-Control-Allow-Headers: "['Authorization', 'Content-Type']"
+      REGISTRY_HTTP_HEADERS_Access-Control-Expose-Headers: "['Docker-Content-Digest', 'WWW-Authenticate']"
+      REGISTRY_AUTH_TOKEN_REALM: ${REGISTRY_AUTH_REALM}
+      REGISTRY_AUTH_TOKEN_SERVICE: ${REGISTRY_SERVICE_NAME:-aithen-registry}
+      REGISTRY_AUTH_TOKEN_ISSUER: ${REGISTRY_TOKEN_ISSUER:-aithen-auth}
+      REGISTRY_AUTH_TOKEN_ROOTCERTBUNDLE: /certs/registry.crt
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost:5000/v2/"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+    networks:
+      - aithen-network
+
+volumes:
+  registry_data:
+    driver: local
+
+networks:
+  aithen-network:
+    driver: bridge
