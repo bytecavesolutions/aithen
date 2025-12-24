@@ -1,8 +1,8 @@
 import { redirect } from "next/navigation";
-import { getCurrentUser } from "@/lib/auth";
-import { db } from "@/db";
-import { UsersTable } from "@/components/dashboard/users-table";
 import { CreateUserDialog } from "@/components/dashboard/create-user-dialog";
+import { UsersTable } from "@/components/dashboard/users-table";
+import { db } from "@/db";
+import { getCurrentUser } from "@/lib/auth";
 
 export default async function UsersPage() {
   const currentUser = await getCurrentUser();

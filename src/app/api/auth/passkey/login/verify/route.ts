@@ -1,10 +1,10 @@
-import { NextResponse } from "next/server";
 import type { AuthenticationResponseJSON } from "@simplewebauthn/server";
-import { cookies } from "next/headers";
-import { verifyAuthentication } from "@/lib/passkey";
-import { createSession, createToken, setAuthCookie } from "@/lib/auth";
-import { db, schema } from "@/db";
 import { eq } from "drizzle-orm";
+import { cookies } from "next/headers";
+import { NextResponse } from "next/server";
+import { db, schema } from "@/db";
+import { createSession, createToken, setAuthCookie } from "@/lib/auth";
+import { verifyAuthentication } from "@/lib/passkey";
 
 export async function POST(request: Request) {
   try {

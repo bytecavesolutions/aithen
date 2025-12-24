@@ -1,4 +1,4 @@
-import { db, schema } from "@/db";
+import { db } from "@/db";
 
 /**
  * Check if the application needs initial setup (no admin user exists)

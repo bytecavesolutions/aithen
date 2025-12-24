@@ -1,10 +1,10 @@
 import bcrypt from "bcryptjs";
+import { eq } from "drizzle-orm";
 import { cookies } from "next/headers";
 import { db, schema } from "@/db";
-import { eq } from "drizzle-orm";
-import { verifyToken, type JWTPayload } from "./auth-edge";
+import { type JWTPayload, verifyToken } from "./auth-edge";
 
-export { createToken, verifyToken, type JWTPayload } from "./auth-edge";
+export { createToken, type JWTPayload, verifyToken } from "./auth-edge";
 
 const SESSION_EXPIRY_DAYS = Number.parseInt(
   process.env.SESSION_EXPIRY_DAYS || "7",

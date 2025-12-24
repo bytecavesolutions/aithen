@@ -1,11 +1,11 @@
-import { NextResponse } from "next/server";
 import { eq } from "drizzle-orm";
+import { NextResponse } from "next/server";
 import { db, schema } from "@/db";
 import {
-  verifyPassword,
   createSession,
   createToken,
   setAuthCookie,
+  verifyPassword,
 } from "@/lib/auth";
 import { loginSchema } from "@/lib/validations";
 

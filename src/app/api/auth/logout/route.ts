@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { getSession, deleteSession, clearAuthCookie } from "@/lib/auth";
+import { clearAuthCookie, deleteSession, getSession } from "@/lib/auth";
 
 export async function POST() {
   try {

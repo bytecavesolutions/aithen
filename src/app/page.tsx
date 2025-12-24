@@ -1,3 +1,12 @@
+import {
+  ArrowRight,
+  Github,
+  Heart,
+  Mail,
+  Rocket,
+  Sparkles,
+  Zap,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -6,15 +15,6 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import {
-  Sparkles,
-  Rocket,
-  Zap,
-  Heart,
-  Github,
-  Mail,
-  ArrowRight,
-} from "lucide-react";
 
 export default function Home() {
   return (

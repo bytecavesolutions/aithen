@@ -1,4 +1,4 @@
-import { Container, Package, Users, HardDrive } from "lucide-react";
+import { Container, HardDrive, Package, Users } from "lucide-react";
 import {
   Card,
   CardContent,
@@ -6,8 +6,8 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { getCurrentUser } from "@/lib/auth";
 import { db } from "@/db";
+import { getCurrentUser } from "@/lib/auth";
 
 export default async function DashboardPage() {
   const user = await getCurrentUser();

@@ -1,18 +1,18 @@
 "use client";
 
-import { useState } from "react";
+import { MoreHorizontal, Pencil, Shield, Trash2, User } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { MoreHorizontal, Pencil, Trash2, Shield, User } from "lucide-react";
-import { Button } from "@/components/ui/button";
+import { useState } from "react";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -22,16 +22,16 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 import { EditUserDialog } from "./edit-user-dialog";
 
-interface User {
+interface UserData {
   id: number;
   username: string;
   email: string;
@@ -41,14 +41,14 @@ interface User {
 }
 
 interface UsersTableProps {
-  users: User[];
+  users: UserData[];
   currentUserId: number;
 }
 
 export function UsersTable({ users, currentUserId }: UsersTableProps) {
   const router = useRouter();
   const [deleteUserId, setDeleteUserId] = useState<number | null>(null);
-  const [editUser, setEditUser] = useState<User | null>(null);
+  const [editUser, setEditUser] = useState<UserData | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
 
   const handleDelete = async () => {

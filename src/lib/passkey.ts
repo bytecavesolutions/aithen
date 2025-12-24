@@ -1,15 +1,15 @@
 import {
+  type AuthenticationResponseJSON,
   generateAuthenticationOptions,
   generateRegistrationOptions,
-  verifyAuthenticationResponse,
-  verifyRegistrationResponse,
+  type RegistrationResponseJSON,
   type VerifiedAuthenticationResponse,
   type VerifiedRegistrationResponse,
-  type AuthenticationResponseJSON,
-  type RegistrationResponseJSON,
+  verifyAuthenticationResponse,
+  verifyRegistrationResponse,
 } from "@simplewebauthn/server";
-import { db, schema } from "@/db";
 import { eq } from "drizzle-orm";
+import { db, schema } from "@/db";
 
 // Get RP (Relying Party) name and ID from environment or use defaults
 const RP_NAME = process.env.NEXT_PUBLIC_APP_NAME || "Aithen Registry Hub";
@@ -113,10 +113,12 @@ export async function verifyRegistration(
   return verified;
 }
 
-export async function generateAuthenticationOpts(username?: string) {
-  console.log("🔑 Generating authentication options (discoverable credentials)");
+export async function generateAuthenticationOpts(_username?: string) {
+  console.log(
+    "🔑 Generating authentication options (discoverable credentials)",
+  );
   console.log("Environment:", { RP_ID, ORIGIN, RP_NAME });
-  
+
   // Use discoverable credentials (no allowCredentials) for passwordless flow
   // This allows the browser to show all passkeys for this domain
   const options = await generateAuthenticationOptions({
@@ -137,7 +139,7 @@ export async function verifyAuthentication(
   expectedChallenge: string,
 ): Promise<{ verified: boolean; userId: number | null }> {
   // Find the passkey by credential ID
-  const credentialId = response.id;
+  const _credentialId = response.id;
   const passkey = await db.query.passkeys.findFirst({
     where: eq(schema.passkeys.credentialId, response.id),
   });

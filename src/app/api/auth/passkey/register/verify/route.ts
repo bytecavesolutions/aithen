@@ -1,5 +1,5 @@
-import { NextResponse } from "next/server";
 import type { RegistrationResponseJSON } from "@simplewebauthn/server";
+import { NextResponse } from "next/server";
 import { getCurrentUser } from "@/lib/auth";
 import { verifyRegistration } from "@/lib/passkey";
 

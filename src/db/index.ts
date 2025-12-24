@@ -1,8 +1,8 @@
 import { Database } from "bun:sqlite";
-import { drizzle } from "drizzle-orm/bun-sqlite";
 import path from "node:path";
-import * as schema from "./schema";
+import { drizzle } from "drizzle-orm/bun-sqlite";
 import { runMigrations } from "./migrate";
+import * as schema from "./schema";
 
 const dbPath = path.join(process.cwd(), "data", "registry.db");
 

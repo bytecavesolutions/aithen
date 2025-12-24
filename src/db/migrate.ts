@@ -12,7 +12,7 @@ const dataDir = path.dirname(dbPath);
 export async function runMigrations(silent = false): Promise<void> {
   // Check if database exists
   const dbExists = fs.existsSync(dbPath);
-  
+
   if (!dbExists && !silent) {
     console.log("📦 Database not found. Creating and running migrations...");
   }

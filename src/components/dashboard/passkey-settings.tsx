@@ -1,8 +1,8 @@
 "use client";
 
-import { useState, useEffect } from "react";
 import { startRegistration } from "@simplewebauthn/browser";
 import { Fingerprint, Plus, Trash2 } from "lucide-react";
+import { useCallback, useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -26,11 +26,7 @@ export function PasskeySettings() {
   const [passkeys, setPasskeys] = useState<Passkey[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
-  useEffect(() => {
-    fetchPasskeys();
-  }, []);
-
-  async function fetchPasskeys() {
+  const fetchPasskeys = useCallback(async () => {
     try {
       const response = await fetch("/api/auth/passkey/list");
       if (response.ok) {
@@ -42,7 +38,11 @@ export function PasskeySettings() {
     } finally {
       setIsLoading(false);
     }
-  }
+  }, []);
+
+  useEffect(() => {
+    fetchPasskeys();
+  }, [fetchPasskeys]);
 
   async function handleRegisterPasskey() {
     setIsRegistering(true);

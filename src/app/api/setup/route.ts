@@ -1,23 +1,20 @@
-import { NextResponse } from "next/server";
 import bcrypt from "bcryptjs";
+import { NextResponse } from "next/server";
 import { z } from "zod";
 import { db, schema } from "@/db";
+import { createSession, createToken, setAuthCookie } from "@/lib/auth";
 import { needsSetup } from "@/lib/setup";
-import {
-  createSession,
-  createToken,
-  setAuthCookie,
-} from "@/lib/auth";
 
 const setupSchema = z.object({
   username: z
     .string()
     .min(3, "Username must be at least 3 characters")
     .max(50, "Username must be at most 50 characters")
-    .regex(/^[a-zA-Z0-9_-]+$/, "Username can only contain letters, numbers, underscores, and hyphens"),
-  email: z
-    .string()
-    .email("Invalid email address"),
+    .regex(
+      /^[a-zA-Z0-9_-]+$/,
+      "Username can only contain letters, numbers, underscores, and hyphens",
+    ),
+  email: z.string().email("Invalid email address"),
   password: z
     .string()
     .min(8, "Password must be at least 8 characters")
@@ -63,7 +60,9 @@ export async function POST(request: Request) {
       }
     } catch (error) {
       // If table doesn't exist, that's okay - we'll create the user anyway
-      if (!(error instanceof Error && error.message.includes("no such table"))) {
+      if (
+        !(error instanceof Error && error.message.includes("no such table"))
+      ) {
         throw error;
       }
     }
@@ -107,25 +106,22 @@ export async function POST(request: Request) {
     });
   } catch (error) {
     console.error("Setup error:", error);
-    
+
     // Provide more helpful error messages
     if (error instanceof Error) {
       if (error.message.includes("no such table")) {
         return NextResponse.json(
-          { 
-            error: "Database tables not found. Please run migrations first.", 
-            hint: "Run: bun run db:migrate" 
+          {
+            error: "Database tables not found. Please run migrations first.",
+            hint: "Run: bun run db:migrate",
           },
           { status: 500 },
         );
       }
-      
-      return NextResponse.json(
-        { error: error.message },
-        { status: 500 },
-      );
+
+      return NextResponse.json({ error: error.message }, { status: 500 });
     }
-    
+
     return NextResponse.json(
       { error: "Internal server error" },
       { status: 500 },

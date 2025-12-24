@@ -26,10 +26,7 @@ export async function DELETE(request: Request) {
     });
 
     if (!passkey || passkey.userId !== user.id) {
-      return NextResponse.json(
-        { error: "Passkey not found" },
-        { status: 404 },
-      );
+      return NextResponse.json({ error: "Passkey not found" }, { status: 404 });
     }
 
     await db.delete(schema.passkeys).where(eq(schema.passkeys.id, passkeyId));

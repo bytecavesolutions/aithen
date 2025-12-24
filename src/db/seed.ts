@@ -14,9 +14,11 @@ const db = new Database(dbPath, { create: true });
 
 async function seed() {
   console.log("🌱 Database seeding is no longer needed.");
-  console.log("⚠️  On first startup, you will be prompted to create an admin user.");
+  console.log(
+    "⚠️  On first startup, you will be prompted to create an admin user.",
+  );
   console.log("   Visit /setup to configure your administrator account.\n");
-  
+
   db.close();
 }
 

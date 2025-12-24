@@ -1,13 +1,12 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
-import { useRouter } from "next/navigation";
-import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { Container, Fingerprint, Key } from "lucide-react";
 import { startAuthentication } from "@simplewebauthn/browser";
+import { Container, Fingerprint, Key } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { useForm } from "react-hook-form";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import {
   Card,
   CardContent,
@@ -23,7 +22,8 @@ import {
   FormLabel,
   FormMessage,
 } from "@/components/ui/form";
-import { loginSchema, type LoginInput } from "@/lib/validations";
+import { Input } from "@/components/ui/input";
+import { type LoginInput, loginSchema } from "@/lib/validations";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -47,6 +47,96 @@ export default function LoginPage() {
 
   const username = form.watch("username");
 
+  const handlePasskeyLogin = useCallback(async () => {
+    if (isPasskeyLoading) {
+      console.log("Passkey login already in progress, skipping...");
+      return;
+    }
+
+    console.log("🔐 Starting passkey login...");
+    setIsPasskeyLoading(true);
+    setError(null);
+
+    try {
+      // Get authentication options (no username needed for discoverable credentials)
+      console.log("Fetching authentication options...");
+      const optionsResponse = await fetch("/api/auth/passkey/login/options", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({}),
+      });
+
+      console.log("Options response status:", optionsResponse.status);
+
+      if (!optionsResponse.ok) {
+        const errorData = await optionsResponse.json();
+        console.error("Options error:", errorData);
+        throw new Error(
+          errorData.details || "Failed to get authentication options",
+        );
+      }
+
+      const options = await optionsResponse.json();
+      console.log("✅ Options received:", options);
+
+      // Start authentication with the browser
+      const authResponse = await startAuthentication({ optionsJSON: options });
+
+      // Verify authentication
+      const verifyResponse = await fetch("/api/auth/passkey/login/verify", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(authResponse),
+      });
+
+      const result = await verifyResponse.json();
+
+      if (!verifyResponse.ok) {
+        setError(result.error || "Passkey authentication failed");
+        return;
+      }
+
+      router.push("/dashboard");
+      router.refresh();
+    } catch (err) {
+      // Handle cancellation and abort errors
+      const isCancelled =
+        err instanceof Error &&
+        (err.name === "NotAllowedError" || err.name === "AbortError");
+
+      // Silently ignore cancellations from auto-triggered attempts
+      if (isAutoTrigger) {
+        // Don't log or show anything for auto-triggered attempts
+        if (!isCancelled) {
+          console.log(
+            "Auto-trigger passkey failed:",
+            err instanceof Error ? err.message : err,
+          );
+        }
+        return;
+      }
+
+      // For manual attempts, only log non-cancellation errors
+      if (!isCancelled) {
+        console.error("Passkey login error:", err);
+      }
+
+      // Show user-friendly error messages
+      if (isCancelled) {
+        // Don't show error for cancellations - user knows they cancelled
+        return;
+      }
+
+      setError(
+        err instanceof Error
+          ? err.message
+          : "Passkey authentication failed. Try password login instead.",
+      );
+    } finally {
+      setIsPasskeyLoading(false);
+    }
+  }, [isPasskeyLoading, isAutoTrigger, router]);
+
   // Auto-trigger passkey on page load (like Go implementation)
   useEffect(() => {
     // Prevent React Strict Mode from running this twice
@@ -58,16 +148,16 @@ export default function LoginPage() {
 
     const autoTriggerPasskey = async () => {
       // Wait for page to settle
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      
+      await new Promise((resolve) => setTimeout(resolve, 1000));
+
       if (hasAutoTriggered || isPasskeyLoading) return;
-      
+
       try {
         console.log("🔐 Auto-triggering passkey authentication...");
         setHasAutoTriggered(true);
         setIsAutoTrigger(true);
         await handlePasskeyLogin();
-      } catch (err) {
+      } catch (_err) {
         // Silently ignore auto-trigger errors
       } finally {
         setIsAutoTrigger(false);
@@ -75,7 +165,7 @@ export default function LoginPage() {
     };
 
     autoTriggerPasskey();
-  }, []);
+  }, [handlePasskeyLogin, hasAutoTriggered, isPasskeyLoading]);
 
   // Check if user has passkey when username is entered
   useEffect(() => {
@@ -112,91 +202,7 @@ export default function LoginPage() {
 
     const timer = setTimeout(checkPasskey, 300);
     return () => clearTimeout(timer);
-  }, [username]);
-
-  async function handlePasskeyLogin() {
-    if (isPasskeyLoading) {
-      console.log("Passkey login already in progress, skipping...");
-      return;
-    }
-
-    console.log("🔐 Starting passkey login...");
-    setIsPasskeyLoading(true);
-    setError(null);
-
-    try {
-      // Get authentication options (no username needed for discoverable credentials)
-      console.log("Fetching authentication options...");
-      const optionsResponse = await fetch("/api/auth/passkey/login/options", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({}),
-      });
-
-      console.log("Options response status:", optionsResponse.status);
-      
-      if (!optionsResponse.ok) {
-        const errorData = await optionsResponse.json();
-        console.error("Options error:", errorData);
-        throw new Error(errorData.details || "Failed to get authentication options");
-      }
-
-      const options = await optionsResponse.json();
-      console.log("✅ Options received:", options);
-
-      // Start authentication with the browser
-      const authResponse = await startAuthentication({ optionsJSON: options });
-
-      // Verify authentication
-      const verifyResponse = await fetch("/api/auth/passkey/login/verify", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(authResponse),
-      });
-
-      const result = await verifyResponse.json();
-
-      if (!verifyResponse.ok) {
-        setError(result.error || "Passkey authentication failed");
-        return;
-      }
-
-      router.push("/dashboard");
-      router.refresh();
-    } catch (err) {
-      // Handle cancellation and abort errors
-      const isCancelled = err instanceof Error && 
-        (err.name === "NotAllowedError" || err.name === "AbortError");
-      
-      // Silently ignore cancellations from auto-triggered attempts
-      if (isAutoTrigger) {
-        // Don't log or show anything for auto-triggered attempts
-        if (!isCancelled) {
-          console.log("Auto-trigger passkey failed:", err instanceof Error ? err.message : err);
-        }
-        return;
-      }
-      
-      // For manual attempts, only log non-cancellation errors
-      if (!isCancelled) {
-        console.error("Passkey login error:", err);
-      }
-      
-      // Show user-friendly error messages
-      if (isCancelled) {
-        // Don't show error for cancellations - user knows they cancelled
-        return;
-      }
-      
-      setError(
-        err instanceof Error 
-          ? err.message 
-          : "Passkey authentication failed. Try password login instead."
-      );
-    } finally {
-      setIsPasskeyLoading(false);
-    }
-  }
+  }, [username, handlePasskeyLogin, isPasskeyLoading, showPasswordForm]);
 
   async function onSubmit(data: LoginInput) {
     setIsLoading(true);
@@ -230,23 +236,23 @@ export default function LoginPage() {
   return (
     <div className="flex min-h-screen items-center justify-center bg-background px-4">
       <Card className="w-full max-w-md">
-          <CardHeader className="space-y-1 text-center">
-            <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-primary/10">
-              <Container className="h-8 w-8 text-primary" />
-            </div>
-            <CardTitle className="text-2xl font-bold">Registry Hub</CardTitle>
-            <CardDescription>
-              Sign in to manage your Docker registry
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <Form {...form}>
-              <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-                {error && (
-                  <div className="rounded-md bg-destructive/10 p-3 text-sm text-destructive">
-                    {error}
-                  </div>
-                )}
+        <CardHeader className="space-y-1 text-center">
+          <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-primary/10">
+            <Container className="h-8 w-8 text-primary" />
+          </div>
+          <CardTitle className="text-2xl font-bold">Registry Hub</CardTitle>
+          <CardDescription>
+            Sign in to manage your Docker registry
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <Form {...form}>
+            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+              {error && (
+                <div className="rounded-md bg-destructive/10 p-3 text-sm text-destructive">
+                  {error}
+                </div>
+              )}
 
               {/* Always visible passkey login button */}
               {!showPasswordForm && (

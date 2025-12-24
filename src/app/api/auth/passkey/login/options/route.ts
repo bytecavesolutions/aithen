@@ -1,15 +1,17 @@
+import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
 import { generateAuthenticationOpts } from "@/lib/passkey";
-import { cookies } from "next/headers";
 
-export async function POST(request: Request) {
+export async function POST(_request: Request) {
   console.log("🔐 Passkey login options requested");
-  
+
   try {
     // No username needed - using discoverable credentials
     console.log("Generating authentication options...");
     const options = await generateAuthenticationOpts();
-    console.log("✅ Options generated:", { challenge: options.challenge.substring(0, 20) + "..." });
+    console.log("✅ Options generated:", {
+      challenge: `${options.challenge.substring(0, 20)}...`,
+    });
 
     // Store the challenge in a cookie for verification
     const cookieStore = await cookies();

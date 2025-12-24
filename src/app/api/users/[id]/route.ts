@@ -1,12 +1,12 @@
-import { type NextRequest, NextResponse } from "next/server";
 import { eq } from "drizzle-orm";
+import { type NextRequest, NextResponse } from "next/server";
 import { db, schema } from "@/db";
 import { getCurrentUser, hashPassword } from "@/lib/auth";
 import { updateUserSchema } from "@/lib/validations";
 
 // GET /api/users/[id] - Get a single user (admin only)
 export async function GET(
-  request: NextRequest,
+  _request: NextRequest,
   { params }: { params: Promise<{ id: string }> },
 ) {
   try {
@@ -141,7 +141,7 @@ export async function PATCH(
 
 // DELETE /api/users/[id] - Delete a user (admin only)
 export async function DELETE(
-  request: NextRequest,
+  _request: NextRequest,
   { params }: { params: Promise<{ id: string }> },
 ) {
   try {
