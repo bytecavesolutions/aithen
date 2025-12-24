@@ -23,6 +23,10 @@ export default async function ImagesPage() {
     redirect("/login");
   }
 
+  // Get registry URL from environment and extract host:port
+  const registryUrl = process.env.REGISTRY_URL || "http://localhost:5000";
+  const registryHost = registryUrl.replace(/^https?:\/\//, "");
+
   const isHealthy = await checkRegistryHealth();
 
   let repositories: Awaited<ReturnType<typeof getUserRepositories>> = [];
@@ -183,32 +187,14 @@ export default async function ImagesPage() {
             <CardContent className="space-y-4">
               <div className="rounded-lg bg-muted p-4 font-mono text-sm">
                 <p className="text-muted-foreground"># Login to the registry</p>
-                <p>
-                  docker login{" "}
-                  {process.env.NEXT_PUBLIC_ORIGIN?.replace(
-                    /^https?:\/\//,
-                    "",
-                  ).split(":")[0] || "localhost"}
-                  :5000
-                </p>
+                <p>docker login {registryHost}</p>
                 <p className="mt-4 text-muted-foreground"># Tag your image</p>
                 <p>
-                  docker tag myimage:latest{" "}
-                  {process.env.NEXT_PUBLIC_ORIGIN?.replace(
-                    /^https?:\/\//,
-                    "",
-                  ).split(":")[0] || "localhost"}
-                  :5000/{user.username}/myimage:latest
+                  docker tag myimage:latest {registryHost}/{user.username}
+                  /myimage:latest
                 </p>
                 <p className="mt-4 text-muted-foreground"># Push to registry</p>
-                <p>
-                  docker push{" "}
-                  {process.env.NEXT_PUBLIC_ORIGIN?.replace(
-                    /^https?:\/\//,
-                    "",
-                  ).split(":")[0] || "localhost"}
-                  :5000/{user.username}/myimage:latest
-                </p>
+                <p>docker push {registryHost}/{user.username}/myimage:latest</p>
               </div>
               <p className="text-sm text-muted-foreground">
                 Use your Aithen username and password to authenticate with the
