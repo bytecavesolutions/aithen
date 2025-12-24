@@ -4,9 +4,13 @@ import {
   ChevronDown,
   ChevronRight,
   Container,
+  ExternalLink,
+  Hash,
+  Tag,
   Trash2,
   User,
 } from "lucide-react";
+import Link from "next/link";
 import { useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -34,18 +38,41 @@ import {
   TableRow,
 } from "@/components/ui/table";
 
+interface ImageDetails {
+  digest: string;
+  tags: string[];
+  size: number;
+  created?: string;
+}
+
 interface UserRepository {
   name: string;
   namespace: string;
   fullName: string;
   tags: string[];
   imageCount: number;
+  tagCount: number;
+  images: ImageDetails[];
 }
 
 interface ImagesTableProps {
   repositories?: UserRepository[];
   groupedRepositories?: Record<string, UserRepository[]>;
   isAdmin: boolean;
+}
+
+function formatBytes(bytes: number): string {
+  if (bytes === 0) return "0 B";
+  const k = 1024;
+  const sizes = ["B", "KB", "MB", "GB", "TB"];
+  const i = Math.floor(Math.log(bytes) / Math.log(k));
+  return `${Number.parseFloat((bytes / k ** i).toFixed(1))} ${sizes[i]}`;
+}
+
+function truncateDigest(digest: string): string {
+  if (!digest) return "";
+  const hash = digest.replace("sha256:", "");
+  return hash.substring(0, 12);
 }
 
 export function ImagesTable({
@@ -56,11 +83,13 @@ export function ImagesTable({
   const [expandedNamespaces, setExpandedNamespaces] = useState<Set<string>>(
     new Set(),
   );
+  const [expandedRepos, setExpandedRepos] = useState<Set<string>>(new Set());
   const [deleteDialog, setDeleteDialog] = useState<{
     open: boolean;
     repository: string;
-    tag: string;
-  }>({ open: false, repository: "", tag: "" });
+    digest: string;
+    tags: string[];
+  }>({ open: false, repository: "", digest: "", tags: [] });
   const [isDeleting, setIsDeleting] = useState(false);
 
   const toggleNamespace = (namespace: string) => {
@@ -73,16 +102,28 @@ export function ImagesTable({
     setExpandedNamespaces(newExpanded);
   };
 
+  const toggleRepo = (repoName: string) => {
+    const newExpanded = new Set(expandedRepos);
+    if (newExpanded.has(repoName)) {
+      newExpanded.delete(repoName);
+    } else {
+      newExpanded.add(repoName);
+    }
+    setExpandedRepos(newExpanded);
+  };
+
   const handleDelete = async () => {
     setIsDeleting(true);
     try {
-      console.log(`[ImagesTable] Deleting ${deleteDialog.repository}:${deleteDialog.tag}`);
+      console.log(
+        `[ImagesTable] Deleting ${deleteDialog.repository} digest ${deleteDialog.digest}`,
+      );
       const response = await fetch("/api/registry/images/delete", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           repository: deleteDialog.repository,
-          tag: deleteDialog.tag,
+          digest: deleteDialog.digest,
         }),
       });
 
@@ -97,61 +138,130 @@ export function ImagesTable({
       }
     } catch (error) {
       console.error(`[ImagesTable] Delete error:`, error);
-      alert(`Failed to delete image: ${error instanceof Error ? error.message : String(error)}`);
+      alert(
+        `Failed to delete image: ${error instanceof Error ? error.message : String(error)}`,
+      );
     } finally {
       setIsDeleting(false);
-      setDeleteDialog({ open: false, repository: "", tag: "" });
+      setDeleteDialog({ open: false, repository: "", digest: "", tags: [] });
     }
   };
 
-  const renderRepositoryRow = (repo: UserRepository, showNamespace = false) => (
-    <TableRow key={repo.fullName}>
-      <TableCell className="font-medium">
+  const renderImageRow = (
+    repo: UserRepository,
+    image: ImageDetails,
+    isNested = false,
+  ) => (
+    <TableRow key={`${repo.fullName}-${image.digest}`} className="group">
+      <TableCell className={isNested ? "pl-12" : ""}>
         <div className="flex items-center gap-2">
-          <Container className="h-4 w-4 text-muted-foreground" />
-          <span className="font-mono">
-            {showNamespace ? repo.fullName : repo.name}
-          </span>
+          <Hash className="h-3.5 w-3.5 text-muted-foreground" />
+          <Link
+            href={`/dashboard/repositories/${repo.namespace}/${repo.name}/images/${encodeURIComponent(image.digest)}`}
+            className="font-mono text-sm hover:underline"
+          >
+            {truncateDigest(image.digest)}
+          </Link>
         </div>
       </TableCell>
       <TableCell>
         <div className="flex flex-wrap gap-1">
-          {repo.tags.slice(0, 5).map((tag) => (
+          {image.tags.slice(0, 4).map((tag) => (
             <Badge key={tag} variant="secondary" className="font-mono text-xs">
+              <Tag className="mr-1 h-3 w-3" />
               {tag}
             </Badge>
           ))}
-          {repo.tags.length > 5 && (
+          {image.tags.length > 4 && (
             <Badge variant="outline" className="text-xs">
-              +{repo.tags.length - 5} more
+              +{image.tags.length - 4} more
             </Badge>
-          )}
-          {repo.tags.length === 0 && (
-            <span className="text-muted-foreground text-sm">No tags</span>
           )}
         </div>
       </TableCell>
-      <TableCell className="text-right">{repo.imageCount}</TableCell>
+      <TableCell className="text-right font-mono text-sm">
+        {formatBytes(image.size)}
+      </TableCell>
       <TableCell className="text-right">
-        {repo.tags.length > 0 && (
-          <Button
-            variant="ghost"
-            size="icon-sm"
-            className="text-destructive hover:text-destructive"
-            onClick={() =>
-              setDeleteDialog({
-                open: true,
-                repository: repo.fullName,
-                tag: repo.tags[0],
-              })
-            }
-          >
-            <Trash2 className="h-4 w-4" />
-          </Button>
-        )}
+        <Button
+          variant="ghost"
+          size="icon-sm"
+          className="text-destructive opacity-0 group-hover:opacity-100 hover:text-destructive"
+          onClick={() =>
+            setDeleteDialog({
+              open: true,
+              repository: repo.fullName,
+              digest: image.digest,
+              tags: image.tags,
+            })
+          }
+        >
+          <Trash2 className="h-4 w-4" />
+        </Button>
       </TableCell>
     </TableRow>
   );
+
+  const renderRepositorySection = (
+    repo: UserRepository,
+    showNamespace = false,
+  ) => {
+    const isExpanded = expandedRepos.has(repo.fullName);
+    const displayName = showNamespace ? repo.fullName : repo.name;
+
+    return (
+      <div key={repo.fullName} className="border-b last:border-b-0">
+        <button
+          type="button"
+          className="flex w-full items-center justify-between px-4 py-3 hover:bg-muted/50 transition-colors"
+          onClick={() => toggleRepo(repo.fullName)}
+        >
+          <div className="flex items-center gap-3">
+            {isExpanded ? (
+              <ChevronDown className="h-4 w-4" />
+            ) : (
+              <ChevronRight className="h-4 w-4" />
+            )}
+            <Container className="h-4 w-4 text-muted-foreground" />
+            <span className="font-medium font-mono">{displayName}</span>
+            <Badge variant="secondary" className="gap-1">
+              <Hash className="h-3 w-3" />
+              {repo.imageCount} {repo.imageCount === 1 ? "image" : "images"}
+            </Badge>
+            <Badge variant="outline" className="gap-1">
+              <Tag className="h-3 w-3" />
+              {repo.tagCount} {repo.tagCount === 1 ? "tag" : "tags"}
+            </Badge>
+          </div>
+          <Link
+            href={`/dashboard/repositories/${repo.namespace}/${repo.name}`}
+            className="text-muted-foreground hover:text-foreground"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <ExternalLink className="h-4 w-4" />
+          </Link>
+        </button>
+
+        {isExpanded && repo.images && (
+          <div className="border-t bg-muted/20">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead className="pl-12">Digest</TableHead>
+                  <TableHead>Tags</TableHead>
+                  <TableHead className="text-right">Size</TableHead>
+                  <TableHead className="text-right w-20">Actions</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {repo.images.map((image) => renderImageRow(repo, image, true))}
+              </TableBody>
+            </Table>
+          </div>
+        )}
+      </div>
+    );
+  };
 
   // Admin view with grouped repositories
   if (isAdmin && groupedRepositories) {
@@ -186,8 +296,8 @@ export function ImagesTable({
               Container images grouped by user namespace
             </CardDescription>
           </CardHeader>
-          <CardContent>
-            <div className="space-y-4">
+          <CardContent className="p-0">
+            <div className="divide-y">
               {namespaces.map((namespace) => {
                 const repos = groupedRepositories[namespace];
                 const isExpanded = expandedNamespaces.has(namespace);
@@ -195,12 +305,13 @@ export function ImagesTable({
                   (sum, r) => sum + r.imageCount,
                   0,
                 );
+                const totalTags = repos.reduce((sum, r) => sum + r.tagCount, 0);
 
                 return (
-                  <div key={namespace} className="rounded-lg border">
+                  <div key={namespace}>
                     <button
                       type="button"
-                      className="flex w-full items-center justify-between p-4 hover:bg-muted/50"
+                      className="flex w-full items-center justify-between p-4 hover:bg-muted/50 transition-colors"
                       onClick={() => toggleNamespace(namespace)}
                     >
                       <div className="flex items-center gap-3">
@@ -214,31 +325,23 @@ export function ImagesTable({
                           {namespace}/
                         </span>
                         <Badge variant="secondary">
-                          {repos.length} repositories
+                          {repos.length}{" "}
+                          {repos.length === 1 ? "repository" : "repositories"}
                         </Badge>
-                        <Badge variant="outline">{totalImages} images</Badge>
+                        <Badge variant="outline" className="gap-1">
+                          <Hash className="h-3 w-3" />
+                          {totalImages} {totalImages === 1 ? "image" : "images"}
+                        </Badge>
+                        <Badge variant="outline" className="gap-1">
+                          <Tag className="h-3 w-3" />
+                          {totalTags} {totalTags === 1 ? "tag" : "tags"}
+                        </Badge>
                       </div>
                     </button>
 
                     {isExpanded && (
-                      <div className="border-t">
-                        <Table>
-                          <TableHeader>
-                            <TableRow>
-                              <TableHead>Repository</TableHead>
-                              <TableHead>Tags</TableHead>
-                              <TableHead className="text-right">
-                                Images
-                              </TableHead>
-                              <TableHead className="text-right w-20">
-                                Actions
-                              </TableHead>
-                            </TableRow>
-                          </TableHeader>
-                          <TableBody>
-                            {repos.map((repo) => renderRepositoryRow(repo))}
-                          </TableBody>
-                        </Table>
+                      <div className="border-t bg-muted/10">
+                        {repos.map((repo) => renderRepositorySection(repo))}
                       </div>
                     )}
                   </div>
@@ -255,19 +358,38 @@ export function ImagesTable({
           <DialogContent>
             <DialogHeader>
               <DialogTitle>Delete Image</DialogTitle>
-              <DialogDescription>
-                Are you sure you want to delete{" "}
-                <code className="rounded bg-muted px-1">
-                  {deleteDialog.repository}:{deleteDialog.tag}
-                </code>
-                ? This action cannot be undone.
+              <DialogDescription className="space-y-2">
+                <div>
+                  Are you sure you want to delete image{" "}
+                  <code className="rounded bg-muted px-1">
+                    {truncateDigest(deleteDialog.digest)}
+                  </code>{" "}
+                  from{" "}
+                  <code className="rounded bg-muted px-1">
+                    {deleteDialog.repository}
+                  </code>
+                  ?
+                </div>
+                {deleteDialog.tags.length > 0 && (
+                  <div className="text-destructive">
+                    This will remove {deleteDialog.tags.length} tag
+                    {deleteDialog.tags.length > 1 ? "s" : ""}:{" "}
+                    {deleteDialog.tags.join(", ")}
+                  </div>
+                )}
+                <div className="font-medium">This action cannot be undone.</div>
               </DialogDescription>
             </DialogHeader>
             <DialogFooter>
               <Button
                 variant="outline"
                 onClick={() =>
-                  setDeleteDialog({ open: false, repository: "", tag: "" })
+                  setDeleteDialog({
+                    open: false,
+                    repository: "",
+                    digest: "",
+                    tags: [],
+                  })
                 }
               >
                 Cancel
@@ -277,7 +399,7 @@ export function ImagesTable({
                 onClick={handleDelete}
                 disabled={isDeleting}
               >
-                {isDeleting ? "Deleting..." : "Delete"}
+                {isDeleting ? "Deleting..." : "Delete Image"}
               </Button>
             </DialogFooter>
           </DialogContent>
@@ -312,20 +434,10 @@ export function ImagesTable({
           <CardTitle>Your Repositories</CardTitle>
           <CardDescription>Container images in your namespace</CardDescription>
         </CardHeader>
-        <CardContent>
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Repository</TableHead>
-                <TableHead>Tags</TableHead>
-                <TableHead className="text-right">Images</TableHead>
-                <TableHead className="text-right w-20">Actions</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {repositories.map((repo) => renderRepositoryRow(repo, true))}
-            </TableBody>
-          </Table>
+        <CardContent className="p-0">
+          <div className="divide-y">
+            {repositories.map((repo) => renderRepositorySection(repo, true))}
+          </div>
         </CardContent>
       </Card>
 
@@ -336,19 +448,38 @@ export function ImagesTable({
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Delete Image</DialogTitle>
-            <DialogDescription>
-              Are you sure you want to delete{" "}
-              <code className="rounded bg-muted px-1">
-                {deleteDialog.repository}:{deleteDialog.tag}
-              </code>
-              ? This action cannot be undone.
+            <DialogDescription className="space-y-2">
+              <div>
+                Are you sure you want to delete image{" "}
+                <code className="rounded bg-muted px-1">
+                  {truncateDigest(deleteDialog.digest)}
+                </code>{" "}
+                from{" "}
+                <code className="rounded bg-muted px-1">
+                  {deleteDialog.repository}
+                </code>
+                ?
+              </div>
+              {deleteDialog.tags.length > 0 && (
+                <div className="text-destructive">
+                  This will remove {deleteDialog.tags.length} tag
+                  {deleteDialog.tags.length > 1 ? "s" : ""}:{" "}
+                  {deleteDialog.tags.join(", ")}
+                </div>
+              )}
+              <div className="font-medium">This action cannot be undone.</div>
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>
             <Button
               variant="outline"
               onClick={() =>
-                setDeleteDialog({ open: false, repository: "", tag: "" })
+                setDeleteDialog({
+                  open: false,
+                  repository: "",
+                  digest: "",
+                  tags: [],
+                })
               }
             >
               Cancel
@@ -358,7 +489,7 @@ export function ImagesTable({
               onClick={handleDelete}
               disabled={isDeleting}
             >
-              {isDeleting ? "Deleting..." : "Delete"}
+              {isDeleting ? "Deleting..." : "Delete Image"}
             </Button>
           </DialogFooter>
         </DialogContent>

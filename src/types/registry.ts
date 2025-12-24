@@ -136,12 +136,36 @@ export interface ImageInfo {
 }
 
 /**
+ * Detailed image information with digest and associated tags
+ */
+export interface ImageDetails {
+  /** The unique digest (sha256:...) for this image */
+  digest: string;
+  /** All tags pointing to this digest */
+  tags: string[];
+  /** Total size in bytes */
+  size: number;
+  /** Created timestamp (if available) */
+  created?: string;
+  /** Architecture (e.g., amd64, arm64) */
+  architecture?: string;
+  /** OS (e.g., linux, windows) */
+  os?: string;
+}
+
+/**
  * User's repository with images
  */
 export interface UserRepository {
   name: string;
   namespace: string;
   fullName: string;
+  /** @deprecated Use images array instead */
   tags: string[];
+  /** Unique image count (by digest) */
   imageCount: number;
+  /** Total tag count */
+  tagCount: number;
+  /** Detailed images with digest-to-tags mapping */
+  images: ImageDetails[];
 }

@@ -1,4 +1,4 @@
-import { Container, Package, RefreshCw } from "lucide-react";
+import { Container, Hash, Package, RefreshCw, Tag } from "lucide-react";
 import { redirect } from "next/navigation";
 import { ImagesTable } from "@/components/dashboard/images-table";
 import { RegistryStatus } from "@/components/dashboard/registry-status";
@@ -31,6 +31,8 @@ export default async function ImagesPage() {
     Awaited<ReturnType<typeof getUserRepositories>>
   > | null = null;
   let totalImages = 0;
+  let totalTags = 0;
+  let totalRepos = 0;
 
   if (isHealthy) {
     try {
@@ -38,10 +40,14 @@ export default async function ImagesPage() {
         groupedRepositories = await getAllRepositoriesGrouped();
         for (const repos of groupedRepositories.values()) {
           totalImages += repos.reduce((sum, r) => sum + r.imageCount, 0);
+          totalTags += repos.reduce((sum, r) => sum + r.tagCount, 0);
+          totalRepos += repos.length;
         }
       } else {
         repositories = await getUserRepositories(user.username);
         totalImages = repositories.reduce((sum, r) => sum + r.imageCount, 0);
+        totalTags = repositories.reduce((sum, r) => sum + r.tagCount, 0);
+        totalRepos = repositories.length;
       }
     } catch (error) {
       console.error("Error fetching repositories:", error);
@@ -88,7 +94,7 @@ export default async function ImagesPage() {
         </Card>
       ) : (
         <>
-          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
             <Card>
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                 <CardTitle className="text-sm font-medium">
@@ -99,14 +105,10 @@ export default async function ImagesPage() {
                 <Package className="h-4 w-4 text-muted-foreground" />
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold">
-                  {user.role === "admin"
-                    ? groupedRepositories?.size || 0
-                    : repositories.length}
-                </div>
+                <div className="text-2xl font-bold">{totalRepos}</div>
                 <p className="text-xs text-muted-foreground">
                   {user.role === "admin"
-                    ? "Across all users"
+                    ? `Across ${groupedRepositories?.size || 0} namespaces`
                     : `In ${user.username}/ namespace`}
                 </p>
               </CardContent>
@@ -115,14 +117,29 @@ export default async function ImagesPage() {
             <Card>
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                 <CardTitle className="text-sm font-medium">
-                  Total Images
+                  Unique Images
                 </CardTitle>
-                <Container className="h-4 w-4 text-muted-foreground" />
+                <Hash className="h-4 w-4 text-muted-foreground" />
               </CardHeader>
               <CardContent>
                 <div className="text-2xl font-bold">{totalImages}</div>
                 <p className="text-xs text-muted-foreground">
-                  Tagged images in registry
+                  Distinct image digests
+                </p>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium">
+                  Total Tags
+                </CardTitle>
+                <Tag className="h-4 w-4 text-muted-foreground" />
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold">{totalTags}</div>
+                <p className="text-xs text-muted-foreground">
+                  Tag references in registry
                 </p>
               </CardContent>
             </Card>

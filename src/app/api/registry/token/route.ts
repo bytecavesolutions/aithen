@@ -65,13 +65,13 @@ export async function GET(request: Request) {
     const bearerToken = authHeader.slice(7);
     const { verifyRegistryToken } = await import("@/lib/registry-token");
     const claims = await verifyRegistryToken(bearerToken);
-    
+
     if (claims) {
       // Get user to check current permissions
       const user = await db.query.users.findFirst({
         where: eq(schema.users.username, claims.sub),
       });
-      
+
       if (user) {
         // Parse scopes and generate new access with user's permissions
         const parsedScopes = parseScopes(scope);
@@ -82,11 +82,14 @@ export async function GET(request: Request) {
           isAdmin,
         );
 
-        const tokenResponse = await createRegistryToken(claims.sub, grantedAccess);
+        const tokenResponse = await createRegistryToken(
+          claims.sub,
+          grantedAccess,
+        );
         return NextResponse.json(tokenResponse);
       }
     }
-    
+
     return NextResponse.json(
       { errors: [{ code: "UNAUTHORIZED", message: "Invalid refresh token" }] },
       { status: 401 },

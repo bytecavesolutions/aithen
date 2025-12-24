@@ -59,7 +59,7 @@ function computeJWKThumbprint(pubKey: crypto.KeyObject): string {
 
   // SHA-256 hash of the JSON payload
   const hash = crypto.createHash("sha256").update(payload).digest();
-  
+
   // Base64url encode without padding
   return hash.toString("base64url");
 }
@@ -98,7 +98,7 @@ async function getPublicKey() {
   }
 
   const certContent = fs.readFileSync(certPath, "utf-8");
-  
+
   // Handle both x509 certificate and raw public key formats
   if (certContent.includes("-----BEGIN CERTIFICATE-----")) {
     publicKey = await importX509(certContent, "RS256");
@@ -113,7 +113,7 @@ async function getPublicKey() {
     rsaPublicKey = crypto.createPublicKey(certContent);
     cachedKid = computeJWKThumbprint(rsaPublicKey);
   }
-  
+
   return publicKey;
 }
 

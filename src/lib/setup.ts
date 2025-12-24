@@ -32,7 +32,7 @@ export async function generateRegistryCertificates(): Promise<void> {
 
   // Create certs directory if it doesn't exist
   if (!fs.existsSync(certsDir)) {
-    fs.mkdirSync(certsDir, { recursive: true});
+    fs.mkdirSync(certsDir, { recursive: true });
   }
 
   console.log("🔐 Generating registry authentication certificates...");
@@ -43,15 +43,17 @@ export async function generateRegistryCertificates(): Promise<void> {
   // Create a certificate
   const cert = forge.pki.createCertificate();
   cert.publicKey = keys.publicKey;
-  
+
   // Generate 128-bit random serial number (matches Go implementation)
   // IMPORTANT: Clear the high bit of the first byte to ensure positive serial number
   // In ASN.1 DER encoding, if the high bit is set, the number is interpreted as negative
   const serialBytes = forge.random.getBytesSync(16);
   const serialArray = serialBytes.split("").map((c) => c.charCodeAt(0));
   serialArray[0] &= 0x7f; // Clear high bit to make it positive
-  cert.serialNumber = serialArray.map((b) => b.toString(16).padStart(2, "0")).join("");
-  
+  cert.serialNumber = serialArray
+    .map((b) => b.toString(16).padStart(2, "0"))
+    .join("");
+
   cert.validity.notBefore = new Date();
   cert.validity.notAfter = new Date();
   cert.validity.notAfter.setFullYear(cert.validity.notBefore.getFullYear() + 1); // 1 year like Go
@@ -88,17 +90,16 @@ export async function generateRegistryCertificates(): Promise<void> {
 
   // Convert to PEM format
   const certPem = forge.pki.certificateToPem(cert);
-  
+
   // Convert private key to PKCS#8 format (required by jose library)
   const privateKeyInfo = forge.pki.wrapRsaPrivateKey(
-    forge.pki.privateKeyToAsn1(keys.privateKey)
+    forge.pki.privateKeyToAsn1(keys.privateKey),
   );
   const privateKeyPem = forge.pki.privateKeyInfoToPem(privateKeyInfo);
 
   // Write files
   fs.writeFileSync(privateKeyPath, privateKeyPem, { mode: 0o600 });
   fs.writeFileSync(publicCertPath, certPem, { mode: 0o644 });
-
 
   console.log("✅ Registry certificates generated successfully");
   console.log(`   Private key: ${privateKeyPath}`);
