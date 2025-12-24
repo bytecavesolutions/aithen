@@ -164,20 +164,34 @@ export default function LoginPage() {
       router.push("/dashboard");
       router.refresh();
     } catch (err) {
-      // Silently ignore errors from auto-triggered attempts
+      // Handle cancellation and abort errors
+      const isCancelled = err instanceof Error && 
+        (err.name === "NotAllowedError" || err.name === "AbortError");
+      
+      // Silently ignore cancellations from auto-triggered attempts
       if (isAutoTrigger) {
         // Don't log or show anything for auto-triggered attempts
+        if (!isCancelled) {
+          console.log("Auto-trigger passkey failed:", err instanceof Error ? err.message : err);
+        }
         return;
       }
       
-      // Show errors for manual attempts
-      console.error("Passkey login error:", err);
+      // For manual attempts, only log non-cancellation errors
+      if (!isCancelled) {
+        console.error("Passkey login error:", err);
+      }
+      
+      // Show user-friendly error messages
+      if (isCancelled) {
+        // Don't show error for cancellations - user knows they cancelled
+        return;
+      }
+      
       setError(
-        err instanceof Error && err.name === "NotAllowedError"
-          ? "Passkey authentication was cancelled"
-          : err instanceof Error && err.name === "AbortError"
-          ? "Passkey authentication was aborted"
-          : "Passkey authentication failed. Try password login instead.",
+        err instanceof Error 
+          ? err.message 
+          : "Passkey authentication failed. Try password login instead."
       );
     } finally {
       setIsPasskeyLoading(false);
@@ -216,23 +230,23 @@ export default function LoginPage() {
   return (
     <div className="flex min-h-screen items-center justify-center bg-background px-4">
       <Card className="w-full max-w-md">
-        <CardHeader className="space-y-1 text-center">
-          <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-primary/10">
-            <Container className="h-8 w-8 text-primary" />
-          </div>
-          <CardTitle className="text-2xl font-bold">Registry Hub</CardTitle>
-          <CardDescription>
-            Sign in to manage your Docker registry
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <Form {...form}>
-            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-              {error && (
-                <div className="rounded-md bg-destructive/10 p-3 text-sm text-destructive">
-                  {error}
-                </div>
-              )}
+          <CardHeader className="space-y-1 text-center">
+            <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-primary/10">
+              <Container className="h-8 w-8 text-primary" />
+            </div>
+            <CardTitle className="text-2xl font-bold">Registry Hub</CardTitle>
+            <CardDescription>
+              Sign in to manage your Docker registry
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <Form {...form}>
+              <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+                {error && (
+                  <div className="rounded-md bg-destructive/10 p-3 text-sm text-destructive">
+                    {error}
+                  </div>
+                )}
 
               {/* Always visible passkey login button */}
               {!showPasswordForm && (

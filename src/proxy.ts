@@ -1,5 +1,6 @@
 import { type NextRequest, NextResponse } from "next/server";
 import { verifyToken } from "@/lib/auth-edge";
+import { needsSetup } from "@/lib/setup";
 
 const publicPaths = [
   "/login",
@@ -8,15 +9,11 @@ const publicPaths = [
   "/api/auth/passkey/login/options",
   "/api/auth/passkey/login/verify",
 ];
+const setupPaths = ["/setup", "/api/setup", "/api/setup/check"];
 const adminOnlyPaths = ["/dashboard/users", "/api/users"];
 
 export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
-
-  // Allow public paths
-  if (publicPaths.some((path) => pathname.startsWith(path))) {
-    return NextResponse.next();
-  }
 
   // Allow static files and Next.js internals
   if (
@@ -26,6 +23,32 @@ export async function proxy(request: NextRequest) {
   ) {
     return NextResponse.next();
   }
+
+  // FIRST PRIORITY: Check if initial setup is needed (server-side only)
+  // This runs before any authentication checks
+  // If database doesn't exist or no admin user, redirect to setup
+  const setupRequired = await needsSetup();
+
+  if (setupRequired) {
+    // Allow setup paths when setup is required
+    if (setupPaths.some((path) => pathname.startsWith(path))) {
+      return NextResponse.next();
+    }
+    // Redirect everything else to setup (including login, home, dashboard, etc.)
+    return NextResponse.redirect(new URL("/setup", request.url));
+  }
+
+  // If setup is complete but user is on setup page, redirect to login
+  if (setupPaths.some((path) => pathname.startsWith(path)) && !setupRequired) {
+    return NextResponse.redirect(new URL("/login", request.url));
+  }
+
+  // SECOND PRIORITY: Allow public paths (login, etc.) if setup is complete
+  if (publicPaths.some((path) => pathname.startsWith(path))) {
+    return NextResponse.next();
+  }
+
+  // THIRD PRIORITY: Check authentication for all other paths
 
   // Check for auth token
   const token = request.cookies.get("auth-token")?.value;

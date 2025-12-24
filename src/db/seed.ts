@@ -1,5 +1,4 @@
 import { Database } from "bun:sqlite";
-import bcrypt from "bcryptjs";
 import fs from "node:fs";
 import path from "node:path";
 
@@ -13,50 +12,11 @@ if (!fs.existsSync(dataDir)) {
 
 const db = new Database(dbPath, { create: true });
 
-// Default admin credentials
-const DEFAULT_ADMIN = {
-  username: "admin",
-  email: "admin@localhost",
-  password: "admin123",
-  role: "admin",
-};
-
 async function seed() {
-  console.log("🌱 Seeding database...\n");
-
-  // Check if admin already exists
-  const existingAdmin = db
-    .query("SELECT id FROM users WHERE username = ?")
-    .get(DEFAULT_ADMIN.username);
-
-  if (existingAdmin) {
-    console.log("⚠️  Admin user already exists. Skipping seed.");
-    db.close();
-    return;
-  }
-
-  // Hash password
-  const passwordHash = await bcrypt.hash(DEFAULT_ADMIN.password, 12);
-
-  // Insert admin user
-  const stmt = db.prepare(`
-    INSERT INTO users (username, email, password_hash, role, created_at, updated_at)
-    VALUES (?, ?, ?, ?, unixepoch(), unixepoch())
-  `);
-
-  stmt.run(
-    DEFAULT_ADMIN.username,
-    DEFAULT_ADMIN.email,
-    passwordHash,
-    DEFAULT_ADMIN.role,
-  );
-
-  console.log("✅ Created default admin user:");
-  console.log(`   Username: ${DEFAULT_ADMIN.username}`);
-  console.log(`   Password: ${DEFAULT_ADMIN.password}`);
-  console.log(`   Email: ${DEFAULT_ADMIN.email}`);
-  console.log("\n⚠️  Please change the password after first login!\n");
-
+  console.log("🌱 Database seeding is no longer needed.");
+  console.log("⚠️  On first startup, you will be prompted to create an admin user.");
+  console.log("   Visit /setup to configure your administrator account.\n");
+  
   db.close();
 }
 
