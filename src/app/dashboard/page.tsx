@@ -19,6 +19,10 @@ import {
 export default async function DashboardPage() {
   const user = await getCurrentUser();
 
+  // Get registry URL from environment and extract host:port
+  const registryUrl = process.env.REGISTRY_URL || "http://localhost:5000";
+  const registryHost = registryUrl.replace(/^https?:\/\//, "");
+
   // Get stats (only for admins)
   let userCount = 0;
   if (user?.role === "admin") {
@@ -138,16 +142,16 @@ export default async function DashboardPage() {
         <CardContent className="space-y-4">
           <div className="rounded-lg bg-muted p-4 font-mono text-sm">
             <p className="text-muted-foreground"># Login to the registry</p>
-            <p>docker login localhost:5000</p>
+            <p>docker login {registryHost}</p>
             <p className="mt-4 text-muted-foreground">
               # Tag your image with your namespace
             </p>
             <p>
-              docker tag myimage:latest localhost:5000/{user?.username}
+              docker tag myimage:latest {registryHost}/{user?.username}
               /myimage:latest
             </p>
             <p className="mt-4 text-muted-foreground"># Push to registry</p>
-            <p>docker push localhost:5000/{user?.username}/myimage:latest</p>
+            <p>docker push {registryHost}/{user?.username}/myimage:latest</p>
           </div>
           <p className="text-sm text-muted-foreground">
             Use your Aithen username and password to authenticate.
