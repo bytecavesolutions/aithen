@@ -79,11 +79,14 @@ export async function getCatalog(): Promise<string[]> {
  * Get tags for a specific repository
  */
 export async function getRepositoryTags(repository: string): Promise<string[]> {
+  console.log(`[getRepositoryTags] Fetching tags for repository: ${repository}`);
   const response = await registryFetch<TagsListResponse>(
     `/v2/${repository}/tags/list`,
     `repository:${repository}:pull`,
   );
-  return response?.tags || [];
+  const tags = response?.tags || [];
+  console.log(`[getRepositoryTags] Found ${tags.length} tags for ${repository}:`, tags);
+  return tags;
 }
 
 /**
@@ -103,19 +106,37 @@ export async function getImageManifest(
       `repository:${repository}:pull`,
     );
 
+    console.log(`[getImageManifest] Fetching manifest for ${repository}:${reference}`);
+
+    // Accept multiple manifest formats
     const response = await fetch(url, {
       headers: {
-        Accept: "application/vnd.docker.distribution.manifest.v2+json",
+        Accept: [
+          "application/vnd.docker.distribution.manifest.v2+json",
+          "application/vnd.docker.distribution.manifest.list.v2+json",
+          "application/vnd.oci.image.manifest.v1+json",
+          "application/vnd.oci.image.index.v1+json",
+          "application/vnd.docker.distribution.manifest.v1+json"
+        ].join(", "),
         ...headers,
       },
     });
 
     if (!response.ok) {
+      const responseText = await response.text();
+      console.error(
+        `[getImageManifest] Failed to fetch manifest: ${response.status} ${response.statusText}`,
+      );
+      console.error(`[getImageManifest] URL: ${url}`);
+      console.error(`[getImageManifest] Response body:`, responseText);
+      console.error(`[getImageManifest] Response headers:`, Object.fromEntries(response.headers.entries()));
       return null;
     }
 
     const manifest = await response.json();
     const digest = response.headers.get("Docker-Content-Digest") || "";
+
+    console.log(`[getImageManifest] Got digest: ${digest}`);
 
     // Calculate total size from layers
     const layers = manifest.layers || [];
@@ -131,7 +152,7 @@ export async function getImageManifest(
       config: manifest.config,
     };
   } catch (error) {
-    console.error("Error fetching manifest:", error);
+    console.error("[getImageManifest] Error fetching manifest:", error);
     return null;
   }
 }
@@ -149,14 +170,25 @@ export async function deleteImage(
       `repository:${repository}:delete`,
     );
 
+    console.log(`[deleteImage] Deleting ${repository} with digest ${digest}`);
+    console.log(`[deleteImage] URL: ${url}`);
+
     const response = await fetch(url, {
       method: "DELETE",
       headers,
     });
 
+    console.log(`[deleteImage] Response status: ${response.status}`);
+
+    if (!response.ok && response.status !== 202) {
+      const errorText = await response.text();
+      console.error(`[deleteImage] Delete failed: ${response.status} ${response.statusText}`);
+      console.error(`[deleteImage] Error response: ${errorText}`);
+    }
+
     return response.ok || response.status === 202;
   } catch (error) {
-    console.error("Error deleting image:", error);
+    console.error("[deleteImage] Error deleting image:", error);
     return false;
   }
 }
@@ -181,6 +213,13 @@ export async function getUserRepositories(
 
   for (const repo of userRepos) {
     const tags = await getRepositoryTags(repo);
+    
+    // Skip repositories with no tags (empty/deleted repositories)
+    if (tags.length === 0) {
+      console.log(`[getUserRepositories] Skipping empty repository: ${repo}`);
+      continue;
+    }
+    
     const parts = repo.split("/");
 
     repositories.push({
@@ -213,6 +252,12 @@ export async function getAllRepositoriesGrouped(): Promise<
     }
 
     const tags = await getRepositoryTags(repo);
+    
+    // Skip repositories with no tags (empty/deleted repositories)
+    if (tags.length === 0) {
+      console.log(`[getAllRepositoriesGrouped] Skipping empty repository: ${repo}`);
+      continue;
+    }
 
     grouped.get(namespace)?.push({
       name: parts.slice(1).join("/") || parts[0],

@@ -76,6 +76,7 @@ export function ImagesTable({
   const handleDelete = async () => {
     setIsDeleting(true);
     try {
+      console.log(`[ImagesTable] Deleting ${deleteDialog.repository}:${deleteDialog.tag}`);
       const response = await fetch("/api/registry/images/delete", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -86,14 +87,17 @@ export function ImagesTable({
       });
 
       if (response.ok) {
+        console.log(`[ImagesTable] Delete successful, reloading page`);
         // Refresh the page to show updated data
         window.location.reload();
       } else {
         const error = await response.json();
+        console.error(`[ImagesTable] Delete failed:`, error);
         alert(error.error || "Failed to delete image");
       }
-    } catch (_error) {
-      alert("Failed to delete image");
+    } catch (error) {
+      console.error(`[ImagesTable] Delete error:`, error);
+      alert(`Failed to delete image: ${error instanceof Error ? error.message : String(error)}`);
     } finally {
       setIsDeleting(false);
       setDeleteDialog({ open: false, repository: "", tag: "" });
