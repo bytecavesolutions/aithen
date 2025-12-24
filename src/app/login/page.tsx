@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -35,6 +35,7 @@ export default function LoginPage() {
   const [showPasswordForm, setShowPasswordForm] = useState(false);
   const [hasAutoTriggered, setHasAutoTriggered] = useState(false);
   const [isAutoTrigger, setIsAutoTrigger] = useState(false);
+  const autoTriggerInitiated = useRef(false);
 
   const form = useForm<LoginInput>({
     resolver: zodResolver(loginSchema),
@@ -46,34 +47,30 @@ export default function LoginPage() {
 
   const username = form.watch("username");
 
-  // Auto-trigger passkey on page load
+  // Auto-trigger passkey on page load (like Go implementation)
   useEffect(() => {
-    if (hasAutoTriggered || isPasskeyLoading) return;
+    // Prevent React Strict Mode from running this twice
+    if (autoTriggerInitiated.current || hasAutoTriggered || isPasskeyLoading) {
+      return;
+    }
+
+    autoTriggerInitiated.current = true;
 
     const autoTriggerPasskey = async () => {
-      // Wait a bit for the page to settle
-      await new Promise(resolve => setTimeout(resolve, 800));
+      // Wait for page to settle
+      await new Promise(resolve => setTimeout(resolve, 1000));
       
       if (hasAutoTriggered || isPasskeyLoading) return;
       
-      // Check if passkeys are available using conditional mediation
       try {
-        const available = await (window as any).PublicKeyCredential?.isConditionalMediationAvailable?.();
-        if (available) {
-          console.log("🔐 Auto-triggering passkey authentication...");
-          setHasAutoTriggered(true);
-          setIsAutoTrigger(true);
-          try {
-            await handlePasskeyLogin();
-          } catch (err) {
-            // Silently ignore errors from auto-trigger
-            console.log("Auto-trigger passkey attempt completed (may have been cancelled)");
-          } finally {
-            setIsAutoTrigger(false);
-          }
-        }
+        console.log("🔐 Auto-triggering passkey authentication...");
+        setHasAutoTriggered(true);
+        setIsAutoTrigger(true);
+        await handlePasskeyLogin();
       } catch (err) {
-        console.log("Conditional mediation not supported, skipping auto-trigger");
+        // Silently ignore auto-trigger errors
+      } finally {
+        setIsAutoTrigger(false);
       }
     };
 
@@ -167,12 +164,13 @@ export default function LoginPage() {
       router.push("/dashboard");
       router.refresh();
     } catch (err) {
-      // Don't show or log error messages for auto-triggered attempts that were cancelled/aborted
-      if (isAutoTrigger && err instanceof Error && (err.name === "NotAllowedError" || err.name === "AbortError")) {
-        // Silently ignore - don't set error or log
+      // Silently ignore errors from auto-triggered attempts
+      if (isAutoTrigger) {
+        // Don't log or show anything for auto-triggered attempts
         return;
       }
       
+      // Show errors for manual attempts
       console.error("Passkey login error:", err);
       setError(
         err instanceof Error && err.name === "NotAllowedError"
