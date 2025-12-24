@@ -8,7 +8,21 @@ services:
     volumes:
       - registry_data:/var/lib/registry
       - ./certs:/certs:ro
-      - ./registry-config.yml:/etc/distribution/config.yml:ro
+    environment:
+      REGISTRY_LOG_LEVEL: debug
+      REGISTRY_LOG_FIELDS_SERVICE: registry
+      REGISTRY_STORAGE_FILESYSTEM_ROOTDIRECTORY: /var/lib/registry
+      REGISTRY_STORAGE_DELETE_ENABLED: "true"
+      REGISTRY_HTTP_ADDR: :5000
+      REGISTRY_HTTP_HEADERS_X-Content-Type-Options: "[nosniff]"
+      REGISTRY_HTTP_HEADERS_Access-Control-Allow-Origin: "['*']"
+      REGISTRY_HTTP_HEADERS_Access-Control-Allow-Methods: "['GET', 'HEAD', 'POST', 'PUT', 'DELETE', 'OPTIONS']"
+      REGISTRY_HTTP_HEADERS_Access-Control-Allow-Headers: "['Authorization', 'Content-Type']"
+      REGISTRY_HTTP_HEADERS_Access-Control-Expose-Headers: "['Docker-Content-Digest', 'WWW-Authenticate']"
+      REGISTRY_AUTH_TOKEN_REALM: "http://host.docker.internal:3000/api/registry/token"
+      REGISTRY_AUTH_TOKEN_SERVICE: aithen-registry
+      REGISTRY_AUTH_TOKEN_ISSUER: aithen-auth
+      REGISTRY_AUTH_TOKEN_ROOTCERTBUNDLE: /certs/registry.crt
     healthcheck:
       test: ["CMD", "wget", "--spider", "-q", "http://localhost:5000/v2/"]
       interval: 30s
