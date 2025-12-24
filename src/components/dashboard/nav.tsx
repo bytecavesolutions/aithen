@@ -1,10 +1,12 @@
 "use client";
 
+import { useState } from "react";
 import {
   Container,
   Layers,
   LayoutDashboard,
   LogOut,
+  Menu,
   Settings,
   Users,
 } from "lucide-react";
@@ -21,6 +23,12 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import {
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+} from "@/components/ui/sheet";
 import { cn } from "@/lib/utils";
 
 interface DashboardNavProps {
@@ -59,6 +67,7 @@ const navItems = [
 export function DashboardNav({ user }: DashboardNavProps) {
   const pathname = usePathname();
   const router = useRouter();
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   const handleLogout = async () => {
     await fetch("/api/auth/logout", { method: "POST" });
@@ -97,7 +106,18 @@ export function DashboardNav({ user }: DashboardNavProps) {
           </nav>
         </div>
 
-        <DropdownMenu>
+        <div className="flex items-center gap-2">
+          <Button
+            variant="ghost"
+            size="icon"
+            className="md:hidden"
+            onClick={() => setMobileMenuOpen(true)}
+          >
+            <Menu className="h-5 w-5" />
+            <span className="sr-only">Open menu</span>
+          </Button>
+
+          <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <Button
               variant="ghost"
@@ -139,7 +159,36 @@ export function DashboardNav({ user }: DashboardNavProps) {
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
+        </div>
       </div>
+
+      <Sheet open={mobileMenuOpen} onOpenChange={setMobileMenuOpen}>
+        <SheetContent side="left" className="w-[280px] sm:w-[320px]">
+          <SheetHeader>
+            <SheetTitle className="text-left">Navigation</SheetTitle>
+          </SheetHeader>
+          <nav className="flex flex-col gap-2 mt-6">
+            {filteredNavItems.map((item) => (
+              <Link
+                key={item.href}
+                href={item.href}
+                onClick={() => setMobileMenuOpen(false)}
+              >
+                <Button
+                  variant={pathname === item.href ? "secondary" : "ghost"}
+                  className={cn(
+                    "w-full justify-start gap-3",
+                    pathname === item.href && "bg-secondary",
+                  )}
+                >
+                  <item.icon className="h-5 w-5" />
+                  {item.label}
+                </Button>
+              </Link>
+            ))}
+          </nav>
+        </SheetContent>
+      </Sheet>
     </header>
   );
 }
