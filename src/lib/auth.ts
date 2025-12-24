@@ -99,3 +99,23 @@ export async function clearAuthCookie(): Promise<void> {
   const cookieStore = await cookies();
   cookieStore.delete("auth-token");
 }
+
+// Access Token utilities
+const ACCESS_TOKEN_PREFIX = "ait_";
+
+export function generateAccessToken(): string {
+  const tokenBytes = crypto.getRandomValues(new Uint8Array(32));
+  const base64Token = Buffer.from(tokenBytes).toString("base64url");
+  return `${ACCESS_TOKEN_PREFIX}${base64Token}`;
+}
+
+export async function hashAccessToken(token: string): Promise<string> {
+  return bcrypt.hash(token, 12);
+}
+
+export async function verifyAccessToken(
+  token: string,
+  hash: string,
+): Promise<boolean> {
+  return bcrypt.compare(token, hash);
+}

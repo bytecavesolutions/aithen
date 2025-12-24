@@ -74,3 +74,28 @@ export type CreateUserInput = z.infer<typeof createUserSchema>;
 export type UpdateUserInput = z.infer<typeof updateUserSchema>;
 export type ChangePasswordInput = z.infer<typeof changePasswordSchema>;
 export type ChangePasswordApiInput = z.infer<typeof changePasswordApiSchema>;
+
+// Access Token schemas
+export const createAccessTokenSchema = z.object({
+  name: z
+    .string()
+    .min(1, "Name is required")
+    .max(100, "Name must be less than 100 characters"),
+  permissions: z
+    .array(z.enum(["pull", "push", "delete"]))
+    .min(1, "At least one permission is required")
+    .default(["pull"]),
+  expiresInDays: z
+    .number()
+    .int("Expiration must be a whole number")
+    .positive("Expiration must be positive")
+    .max(365, "Expiration cannot exceed 365 days")
+    .optional(),
+});
+
+export const deleteAccessTokenSchema = z.object({
+  tokenId: z.string().min(1, "Token ID is required"),
+});
+
+export type CreateAccessTokenInput = z.infer<typeof createAccessTokenSchema>;
+export type DeleteAccessTokenInput = z.infer<typeof deleteAccessTokenSchema>;

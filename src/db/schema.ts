@@ -55,6 +55,21 @@ export const passkeyVerifications = sqliteTable("passkey_verifications", {
     .$defaultFn(() => new Date()),
 });
 
+export const accessTokens = sqliteTable("access_tokens", {
+  id: text("id").primaryKey(),
+  userId: integer("user_id")
+    .notNull()
+    .references(() => users.id, { onDelete: "cascade" }),
+  name: text("name").notNull(),
+  tokenHash: text("token_hash").notNull().unique(),
+  permissions: text("permissions").notNull().default("pull"),
+  lastUsedAt: integer("last_used_at", { mode: "timestamp" }),
+  expiresAt: integer("expires_at", { mode: "timestamp" }),
+  createdAt: integer("created_at", { mode: "timestamp" })
+    .notNull()
+    .$defaultFn(() => new Date()),
+});
+
 export type User = typeof users.$inferSelect;
 export type NewUser = typeof users.$inferInsert;
 export type Session = typeof sessions.$inferSelect;
@@ -63,3 +78,5 @@ export type Passkey = typeof passkeys.$inferSelect;
 export type NewPasskey = typeof passkeys.$inferInsert;
 export type PasskeyVerification = typeof passkeyVerifications.$inferSelect;
 export type NewPasskeyVerification = typeof passkeyVerifications.$inferInsert;
+export type AccessToken = typeof accessTokens.$inferSelect;
+export type NewAccessToken = typeof accessTokens.$inferInsert;

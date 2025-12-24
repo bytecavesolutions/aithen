@@ -1,12 +1,13 @@
 import { eq } from "drizzle-orm";
 import { NextResponse } from "next/server";
 import { db, schema } from "@/db";
-import { verifyPassword } from "@/lib/auth";
+import { verifyAccessToken, verifyPassword } from "@/lib/auth";
 import {
   createRegistryToken,
   generateGrantedAccess,
   parseScopes,
 } from "@/lib/registry-token";
+import type { TokenAccess } from "@/types/registry";
 
 /**
  * Docker Registry Token Service Endpoint
@@ -115,7 +116,40 @@ export async function GET(request: Request) {
       );
     }
 
-    const passwordValid = await verifyPassword(password, user.passwordHash);
+    // Try password authentication first
+    let passwordValid = await verifyPassword(password, user.passwordHash);
+    let isAccessToken = false;
+    let tokenPermissions: string[] = [];
+
+    // If password fails and input looks like an access token, try token authentication
+    if (!passwordValid && password.startsWith("ait_")) {
+      // Find all access tokens for this user
+      const tokens = await db.query.accessTokens.findMany({
+        where: eq(schema.accessTokens.userId, user.id),
+      });
+
+      // Try to verify against each token hash
+      for (const token of tokens) {
+        // Check if token is expired
+        if (token.expiresAt && token.expiresAt < new Date()) {
+          continue;
+        }
+
+        const tokenValid = await verifyAccessToken(password, token.tokenHash);
+        if (tokenValid) {
+          passwordValid = true;
+          isAccessToken = true;
+          tokenPermissions = token.permissions.split(",");
+
+          // Update last used timestamp
+          await db
+            .update(schema.accessTokens)
+            .set({ lastUsedAt: new Date() })
+            .where(eq(schema.accessTokens.id, token.id));
+          break;
+        }
+      }
+    }
 
     if (!passwordValid) {
       return NextResponse.json(
@@ -127,17 +161,33 @@ export async function GET(request: Request) {
     // Parse requested scopes and generate granted access
     const parsedScopes = parseScopes(scope);
     const isAdmin = user.role === "admin";
-    const grantedAccess = generateGrantedAccess(
-      parsedScopes,
-      username,
-      isAdmin,
-    );
+
+    // If using an access token, filter actions by token permissions
+    let grantedAccess: TokenAccess[];
+    if (isAccessToken && tokenPermissions.length > 0) {
+      grantedAccess = generateGrantedAccess(parsedScopes, username, isAdmin)
+        .map((access) => ({
+          ...access,
+          // Filter actions to only those allowed by the token
+          actions: access.actions.filter((action) =>
+            action === "*"
+              ? tokenPermissions.includes("push") &&
+                tokenPermissions.includes("pull") &&
+                tokenPermissions.includes("delete")
+              : tokenPermissions.includes(action),
+          ) as ("push" | "pull" | "delete" | "*")[],
+        }))
+        .filter((access) => access.actions.length > 0);
+    } else {
+      grantedAccess = generateGrantedAccess(parsedScopes, username, isAdmin);
+    }
 
     // Generate token with granted access
     const tokenResponse = await createRegistryToken(username, grantedAccess);
 
     // Add refresh token if requested (for docker login persistence)
-    if (offlineToken) {
+    // Note: Don't provide refresh tokens when using access tokens
+    if (offlineToken && !isAccessToken) {
       // For simplicity, we use the same token as refresh token
       // In production, you might want a separate longer-lived token
       tokenResponse.refresh_token = tokenResponse.token;
