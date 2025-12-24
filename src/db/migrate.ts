@@ -92,6 +92,10 @@ export async function runMigrations(silent = false): Promise<void> {
     console.log("✅ Database migrations completed successfully!");
     console.log(`   Database path: ${dbPath}`);
   }
+
+  // Generate registry certificates if they don't exist
+  const { generateRegistryCertificates } = await import("@/lib/setup");
+  generateRegistryCertificates();
 }
 
 // Run migrations when script is executed directly

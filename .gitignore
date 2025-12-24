@@ -51,3 +51,7 @@ next-env.d.ts
 
 # drizzle
 /drizzle/
+# registry certificates (contain private keys)
+/certs/
+*.key
+*.crt

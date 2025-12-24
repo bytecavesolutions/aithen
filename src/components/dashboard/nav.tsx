@@ -2,6 +2,7 @@
 
 import {
   Container,
+  Layers,
   LayoutDashboard,
   LogOut,
   Settings,
@@ -36,6 +37,11 @@ const navItems = [
     href: "/dashboard",
     label: "Dashboard",
     icon: LayoutDashboard,
+  },
+  {
+    href: "/dashboard/images",
+    label: "Images",
+    icon: Layers,
   },
   {
     href: "/dashboard/users",

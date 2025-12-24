@@ -1,0 +1,208 @@
+import { Container, Package, RefreshCw } from "lucide-react";
+import { redirect } from "next/navigation";
+import { ImagesTable } from "@/components/dashboard/images-table";
+import { RegistryStatus } from "@/components/dashboard/registry-status";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { getCurrentUser } from "@/lib/auth";
+import {
+  checkRegistryHealth,
+  getAllRepositoriesGrouped,
+  getUserRepositories,
+} from "@/lib/registry";
+
+export default async function ImagesPage() {
+  const user = await getCurrentUser();
+
+  if (!user) {
+    redirect("/login");
+  }
+
+  const isHealthy = await checkRegistryHealth();
+
+  let repositories: Awaited<ReturnType<typeof getUserRepositories>> = [];
+  let groupedRepositories: Map<
+    string,
+    Awaited<ReturnType<typeof getUserRepositories>>
+  > | null = null;
+  let totalImages = 0;
+
+  if (isHealthy) {
+    try {
+      if (user.role === "admin") {
+        groupedRepositories = await getAllRepositoriesGrouped();
+        for (const repos of groupedRepositories.values()) {
+          totalImages += repos.reduce((sum, r) => sum + r.imageCount, 0);
+        }
+      } else {
+        repositories = await getUserRepositories(user.username);
+        totalImages = repositories.reduce((sum, r) => sum + r.imageCount, 0);
+      }
+    } catch (error) {
+      console.error("Error fetching repositories:", error);
+    }
+  }
+
+  return (
+    <div className="space-y-6">
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-3xl font-bold tracking-tight">Images</h1>
+          <p className="text-muted-foreground">
+            {user.role === "admin"
+              ? "Manage all container images in the registry"
+              : `Manage your container images in the ${user.username}/ namespace`}
+          </p>
+        </div>
+        <RegistryStatus isHealthy={isHealthy} />
+      </div>
+
+      {!isHealthy ? (
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2 text-destructive">
+              <Container className="h-5 w-5" />
+              Registry Unavailable
+            </CardTitle>
+            <CardDescription>
+              Cannot connect to the Docker registry. Please ensure it is
+              running.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="rounded-lg border border-dashed p-6 text-center">
+              <RefreshCw className="mx-auto h-12 w-12 text-muted-foreground opacity-50" />
+              <p className="mt-4 text-sm text-muted-foreground">
+                Start the registry with:{" "}
+                <code className="rounded bg-muted px-2 py-1">
+                  docker-compose up -d
+                </code>
+              </p>
+            </div>
+          </CardContent>
+        </Card>
+      ) : (
+        <>
+          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium">
+                  {user.role === "admin"
+                    ? "Total Repositories"
+                    : "Your Repositories"}
+                </CardTitle>
+                <Package className="h-4 w-4 text-muted-foreground" />
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold">
+                  {user.role === "admin"
+                    ? groupedRepositories?.size || 0
+                    : repositories.length}
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  {user.role === "admin"
+                    ? "Across all users"
+                    : `In ${user.username}/ namespace`}
+                </p>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium">
+                  Total Images
+                </CardTitle>
+                <Container className="h-4 w-4 text-muted-foreground" />
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold">{totalImages}</div>
+                <p className="text-xs text-muted-foreground">
+                  Tagged images in registry
+                </p>
+              </CardContent>
+            </Card>
+
+            {user.role !== "admin" && (
+              <Card>
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                  <CardTitle className="text-sm font-medium">
+                    Your Namespace
+                  </CardTitle>
+                  <Package className="h-4 w-4 text-muted-foreground" />
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold font-mono">
+                    {user.username}/
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    Push images to this namespace
+                  </p>
+                </CardContent>
+              </Card>
+            )}
+          </div>
+
+          {user.role === "admin" && groupedRepositories ? (
+            <ImagesTable
+              groupedRepositories={Object.fromEntries(groupedRepositories)}
+              isAdmin={true}
+            />
+          ) : (
+            <ImagesTable repositories={repositories} isAdmin={false} />
+          )}
+
+          <Card>
+            <CardHeader>
+              <CardTitle>Push Instructions</CardTitle>
+              <CardDescription>
+                How to push images to your namespace
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="rounded-lg bg-muted p-4 font-mono text-sm">
+                <p className="text-muted-foreground"># Login to the registry</p>
+                <p>
+                  docker login{" "}
+                  {process.env.NEXT_PUBLIC_ORIGIN?.replace(
+                    /^https?:\/\//,
+                    "",
+                  ).split(":")[0] || "localhost"}
+                  :5000
+                </p>
+                <p className="mt-4 text-muted-foreground"># Tag your image</p>
+                <p>
+                  docker tag myimage:latest{" "}
+                  {process.env.NEXT_PUBLIC_ORIGIN?.replace(
+                    /^https?:\/\//,
+                    "",
+                  ).split(":")[0] || "localhost"}
+                  :5000/{user.username}/myimage:latest
+                </p>
+                <p className="mt-4 text-muted-foreground"># Push to registry</p>
+                <p>
+                  docker push{" "}
+                  {process.env.NEXT_PUBLIC_ORIGIN?.replace(
+                    /^https?:\/\//,
+                    "",
+                  ).split(":")[0] || "localhost"}
+                  :5000/{user.username}/myimage:latest
+                </p>
+              </div>
+              <p className="text-sm text-muted-foreground">
+                Use your Aithen username and password to authenticate with the
+                registry.
+                {user.role !== "admin" &&
+                  " You can only push to your own namespace."}
+              </p>
+            </CardContent>
+          </Card>
+        </>
+      )}
+    </div>
+  );
+}

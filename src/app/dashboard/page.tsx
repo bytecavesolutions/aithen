@@ -1,4 +1,5 @@
-import { Container, HardDrive, Package, Users } from "lucide-react";
+import { Container, Layers, Package, Users } from "lucide-react";
+import { RegistryStatus } from "@/components/dashboard/registry-status";
 import {
   Card,
   CardContent,
@@ -8,6 +9,12 @@ import {
 } from "@/components/ui/card";
 import { db } from "@/db";
 import { getCurrentUser } from "@/lib/auth";
+import {
+  checkRegistryHealth,
+  getAllRepositoriesGrouped,
+  getCatalog,
+  getUserRepositories,
+} from "@/lib/registry";
 
 export default async function DashboardPage() {
   const user = await getCurrentUser();
@@ -19,27 +26,60 @@ export default async function DashboardPage() {
     userCount = users.length;
   }
 
+  // Get registry stats
+  const isHealthy = await checkRegistryHealth();
+  let repositoryCount = 0;
+  let imageCount = 0;
+
+  if (isHealthy && user) {
+    try {
+      if (user.role === "admin") {
+        const allRepos = await getCatalog();
+        repositoryCount = allRepos.length;
+        const grouped = await getAllRepositoriesGrouped();
+        for (const repos of grouped.values()) {
+          imageCount += repos.reduce((sum, r) => sum + r.imageCount, 0);
+        }
+      } else {
+        const userRepos = await getUserRepositories(user.username);
+        repositoryCount = userRepos.length;
+        imageCount = userRepos.reduce((sum, r) => sum + r.imageCount, 0);
+      }
+    } catch (error) {
+      console.error("Error fetching registry stats:", error);
+    }
+  }
+
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-3xl font-bold tracking-tight">Dashboard</h1>
-        <p className="text-muted-foreground">
-          Welcome back, {user?.username}! Here's an overview of your registry.
-        </p>
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-3xl font-bold tracking-tight">Dashboard</h1>
+          <p className="text-muted-foreground">
+            Welcome back, {user?.username}! Here's an overview of your registry.
+          </p>
+        </div>
+        <RegistryStatus isHealthy={isHealthy} />
       </div>
 
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">
-              Total Repositories
+              {user?.role === "admin"
+                ? "Total Repositories"
+                : "Your Repositories"}
             </CardTitle>
             <Package className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">0</div>
+            <div className="text-2xl font-bold">{repositoryCount}</div>
             <p className="text-xs text-muted-foreground">
-              Connect your registry to see repositories
+              {isHealthy
+                ? user?.role === "admin"
+                  ? "Across all users"
+                  : `In ${user?.username}/ namespace`
+                : "Registry offline"}
             </p>
           </CardContent>
         </Card>
@@ -47,25 +87,29 @@ export default async function DashboardPage() {
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Total Images</CardTitle>
-            <Container className="h-4 w-4 text-muted-foreground" />
+            <Layers className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">0</div>
+            <div className="text-2xl font-bold">{imageCount}</div>
             <p className="text-xs text-muted-foreground">
-              Across all repositories
+              {isHealthy ? "Tagged images in registry" : "Registry offline"}
             </p>
           </CardContent>
         </Card>
 
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Storage Used</CardTitle>
-            <HardDrive className="h-4 w-4 text-muted-foreground" />
+            <CardTitle className="text-sm font-medium">
+              Your Namespace
+            </CardTitle>
+            <Container className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">0 GB</div>
+            <div className="text-2xl font-bold font-mono">
+              {user?.username}/
+            </div>
             <p className="text-xs text-muted-foreground">
-              Registry storage usage
+              Push images to this prefix
             </p>
           </CardContent>
         </Card>
@@ -86,21 +130,30 @@ export default async function DashboardPage() {
 
       <Card>
         <CardHeader>
-          <CardTitle>Recent Activity</CardTitle>
+          <CardTitle>Quick Start</CardTitle>
           <CardDescription>
-            Latest push and pull operations from your registry
+            Get started pushing images to your private registry
           </CardDescription>
         </CardHeader>
-        <CardContent>
-          <div className="flex items-center justify-center py-10 text-muted-foreground">
-            <div className="text-center">
-              <Container className="mx-auto h-12 w-12 opacity-50" />
-              <p className="mt-4">No recent activity</p>
-              <p className="text-sm">
-                Configure your registry connection to see activity
-              </p>
-            </div>
+        <CardContent className="space-y-4">
+          <div className="rounded-lg bg-muted p-4 font-mono text-sm">
+            <p className="text-muted-foreground"># Login to the registry</p>
+            <p>docker login localhost:5000</p>
+            <p className="mt-4 text-muted-foreground">
+              # Tag your image with your namespace
+            </p>
+            <p>
+              docker tag myimage:latest localhost:5000/{user?.username}
+              /myimage:latest
+            </p>
+            <p className="mt-4 text-muted-foreground"># Push to registry</p>
+            <p>docker push localhost:5000/{user?.username}/myimage:latest</p>
           </div>
+          <p className="text-sm text-muted-foreground">
+            Use your Aithen username and password to authenticate.
+            {user?.role !== "admin" &&
+              " You can only push images to your own namespace."}
+          </p>
         </CardContent>
       </Card>
     </div>
