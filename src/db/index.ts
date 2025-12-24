@@ -9,7 +9,7 @@ const dbPath = path.join(process.cwd(), "data", "registry.db");
 import fs from "node:fs";
 const dataDir = path.dirname(dbPath);
 if (!fs.existsSync(dataDir)) {
-	fs.mkdirSync(dataDir, { recursive: true });
+  fs.mkdirSync(dataDir, { recursive: true });
 }
 
 const sqlite = new Database(dbPath, { create: true });

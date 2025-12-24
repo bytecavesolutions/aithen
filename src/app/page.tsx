@@ -53,7 +53,8 @@ export default function Home() {
             </CardHeader>
             <CardContent>
               <p className="text-sm text-zinc-600 dark:text-zinc-400">
-                Server-side rendering, static generation, and more out of the box.
+                Server-side rendering, static generation, and more out of the
+                box.
               </p>
             </CardContent>
           </Card>
@@ -93,17 +94,23 @@ export default function Home() {
         <Card className="mb-16">
           <CardHeader>
             <CardTitle>Tech Stack</CardTitle>
-            <CardDescription>Modern tools for modern development</CardDescription>
+            <CardDescription>
+              Modern tools for modern development
+            </CardDescription>
           </CardHeader>
           <CardContent>
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
               <div className="p-4 border rounded-lg">
                 <p className="font-semibold">Next.js</p>
-                <p className="text-sm text-zinc-600 dark:text-zinc-400">v16.1.1</p>
+                <p className="text-sm text-zinc-600 dark:text-zinc-400">
+                  v16.1.1
+                </p>
               </div>
               <div className="p-4 border rounded-lg">
                 <p className="font-semibold">React</p>
-                <p className="text-sm text-zinc-600 dark:text-zinc-400">v19.2.3</p>
+                <p className="text-sm text-zinc-600 dark:text-zinc-400">
+                  v19.2.3
+                </p>
               </div>
               <div className="p-4 border rounded-lg">
                 <p className="font-semibold">Tailwind CSS</p>

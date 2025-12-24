@@ -7,7 +7,7 @@ const dataDir = path.dirname(dbPath);
 
 // Ensure data directory exists
 if (!fs.existsSync(dataDir)) {
-	fs.mkdirSync(dataDir, { recursive: true });
+  fs.mkdirSync(dataDir, { recursive: true });
 }
 
 const db = new Database(dbPath, { create: true });
@@ -36,11 +36,40 @@ db.exec(`
   );
 `);
 
+// Create passkey_verifications table
+db.exec(`
+  CREATE TABLE IF NOT EXISTS passkey_verifications (
+    id TEXT PRIMARY KEY NOT NULL,
+    user_id INTEGER NOT NULL,
+    challenge TEXT NOT NULL,
+    expires_at INTEGER NOT NULL,
+    created_at INTEGER NOT NULL,
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+  );
+`);
+
+// Create passkeys table
+db.exec(`
+  CREATE TABLE IF NOT EXISTS passkeys (
+    id TEXT PRIMARY KEY NOT NULL,
+    user_id INTEGER NOT NULL,
+    credential_id TEXT NOT NULL UNIQUE,
+    public_key TEXT NOT NULL,
+    counter INTEGER DEFAULT 0 NOT NULL,
+    transports TEXT,
+    device_name TEXT,
+    created_at INTEGER NOT NULL,
+    last_used_at INTEGER,
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+  );
+`);
+
 // Create indexes
 db.exec(`
   CREATE INDEX IF NOT EXISTS idx_users_username ON users(username);
   CREATE INDEX IF NOT EXISTS idx_users_email ON users(email);
   CREATE INDEX IF NOT EXISTS idx_sessions_user_id ON sessions(user_id);
+  CREATE UNIQUE INDEX IF NOT EXISTS passkeys_credential_id_unique ON passkeys(credential_id);
 `);
 
 console.log("✅ Database migrated successfully!");

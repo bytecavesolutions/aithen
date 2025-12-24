@@ -1,0 +1,37 @@
+import { NextResponse } from "next/server";
+import { generateAuthenticationOpts } from "@/lib/passkey";
+import { cookies } from "next/headers";
+
+export async function POST(request: Request) {
+  console.log("🔐 Passkey login options requested");
+  
+  try {
+    // No username needed - using discoverable credentials
+    console.log("Generating authentication options...");
+    const options = await generateAuthenticationOpts();
+    console.log("✅ Options generated:", { challenge: options.challenge.substring(0, 20) + "..." });
+
+    // Store the challenge in a cookie for verification
+    const cookieStore = await cookies();
+    cookieStore.set("passkey-challenge", options.challenge, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: "lax",
+      maxAge: 60 * 5, // 5 minutes
+      path: "/",
+    });
+
+    console.log("✅ Challenge stored in cookie");
+    return NextResponse.json(options);
+  } catch (error) {
+    console.error("❌ Passkey authentication options error:", error);
+    console.error("Error stack:", error instanceof Error ? error.stack : "");
+    return NextResponse.json(
+      {
+        error: "Failed to generate authentication options",
+        details: error instanceof Error ? error.message : String(error),
+      },
+      { status: 500 },
+    );
+  }
+}
