@@ -56,7 +56,9 @@ export function PasskeySettings() {
       if (!optionsResponse.ok) {
         const errorData = await optionsResponse.json();
         throw new Error(
-          errorData.details || "Failed to get registration options",
+          errorData.details ||
+            errorData.error ||
+            "Failed to get registration options",
         );
       }
 
@@ -82,11 +84,25 @@ export function PasskeySettings() {
       await fetchPasskeys(); // Refresh the list
     } catch (err) {
       console.error("Passkey registration error:", err);
-      setError(
-        err instanceof Error
-          ? err.message
-          : "Failed to register passkey. Please try again.",
-      );
+
+      // Provide user-friendly error messages
+      let errorMessage = "Failed to register passkey. Please try again.";
+
+      if (err instanceof Error) {
+        if (err.name === "NotAllowedError") {
+          errorMessage =
+            "Passkey registration was canceled or timed out. Please try again and complete the authentication prompt.";
+        } else if (err.name === "InvalidStateError") {
+          errorMessage = "This passkey is already registered on this device.";
+        } else if (err.name === "SecurityError") {
+          errorMessage =
+            "Security error: Passkeys require HTTPS. Make sure you're using a secure connection.";
+        } else {
+          errorMessage = err.message;
+        }
+      }
+
+      setError(errorMessage);
     } finally {
       setIsRegistering(false);
     }
@@ -119,12 +135,10 @@ export function PasskeySettings() {
   return (
     <Card>
       <CardHeader>
-        <CardTitle className="flex items-center gap-2">
-          <Fingerprint className="h-5 w-5" />
-          Passkey Authentication
-        </CardTitle>
+        <CardTitle>Passkey Authentication</CardTitle>
         <CardDescription>
-          Add a passkey for faster, passwordless login
+          Add a passkey for faster, passwordless login using biometric
+          authentication or your device's screen lock.
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
@@ -139,11 +153,21 @@ export function PasskeySettings() {
           </div>
         )}
 
-        <div className="flex flex-col gap-2">
-          <p className="text-sm text-muted-foreground">
-            Passkeys use your device's biometric authentication (fingerprint,
-            face ID) or screen lock to sign you in securely without a password.
-          </p>
+        <div className="flex flex-col gap-4">
+          <div className="rounded-lg border bg-muted/50 p-4">
+            <div className="flex items-start gap-3">
+              <Fingerprint className="h-5 w-5 text-muted-foreground mt-0.5" />
+              <div className="flex-1">
+                <p className="text-sm font-medium">What are passkeys?</p>
+                <p className="text-sm text-muted-foreground mt-1">
+                  Passkeys use your device's biometric authentication
+                  (fingerprint, face ID) or screen lock to sign you in securely
+                  without a password.
+                </p>
+              </div>
+            </div>
+          </div>
+
           <Button
             onClick={handleRegisterPasskey}
             disabled={isRegistering}
@@ -163,16 +187,24 @@ export function PasskeySettings() {
         {isLoading ? (
           <p className="text-sm text-muted-foreground">Loading passkeys...</p>
         ) : passkeys.length > 0 ? (
-          <div className="space-y-2">
-            <h3 className="text-sm font-medium">Your Passkeys</h3>
+          <div className="space-y-3">
+            <div className="flex items-center justify-between">
+              <h3 className="text-sm font-semibold">Your Passkeys</h3>
+              <span className="text-xs text-muted-foreground">
+                {passkeys.length}{" "}
+                {passkeys.length === 1 ? "passkey" : "passkeys"}
+              </span>
+            </div>
             <div className="space-y-2">
               {passkeys.map((passkey) => (
                 <div
                   key={passkey.id}
-                  className="flex items-center justify-between rounded-md border p-3"
+                  className="flex items-center justify-between rounded-lg border bg-card p-4 transition-colors hover:bg-accent/50"
                 >
                   <div className="flex items-center gap-3">
-                    <Fingerprint className="h-5 w-5 text-muted-foreground" />
+                    <div className="rounded-full bg-primary/10 p-2">
+                      <Fingerprint className="h-4 w-4 text-primary" />
+                    </div>
                     <div>
                       <p className="text-sm font-medium">
                         {passkey.deviceName || "Unnamed Passkey"}
@@ -191,10 +223,11 @@ export function PasskeySettings() {
                   </div>
                   <Button
                     variant="ghost"
-                    size="icon"
+                    size="icon-sm"
                     onClick={() => handleDeletePasskey(passkey.id)}
+                    className="hover:bg-destructive/10 hover:text-destructive"
                   >
-                    <Trash2 className="h-4 w-4 text-destructive" />
+                    <Trash2 className="h-4 w-4" />
                   </Button>
                 </div>
               ))}
