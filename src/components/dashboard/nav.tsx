@@ -99,7 +99,11 @@ export function DashboardNav({ user }: DashboardNavProps) {
 
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <Button variant="ghost" className="relative h-10 w-10 rounded-full">
+            <Button
+              variant="ghost"
+              className="relative h-10 w-10 rounded-full"
+              suppressHydrationWarning
+            >
               <Avatar className="h-10 w-10">
                 <AvatarFallback className="bg-primary/10 text-primary">
                   {user.username.slice(0, 2).toUpperCase()}

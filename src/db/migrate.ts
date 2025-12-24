@@ -95,7 +95,7 @@ export async function runMigrations(silent = false): Promise<void> {
 
   // Generate registry certificates if they don't exist
   const { generateRegistryCertificates } = await import("@/lib/setup");
-  generateRegistryCertificates();
+  await generateRegistryCertificates();
 }
 
 // Run migrations when script is executed directly

@@ -8,6 +8,8 @@ const publicPaths = [
   "/api/auth/passkey/check",
   "/api/auth/passkey/login/options",
   "/api/auth/passkey/login/verify",
+  "/api/registry/token", // Docker registry token endpoint (uses Basic auth)
+  "/api/registry/jwks", // JWKS endpoint for public key discovery
 ];
 const setupPaths = ["/setup", "/api/setup", "/api/setup/check"];
 const adminOnlyPaths = ["/dashboard/users", "/api/users"];

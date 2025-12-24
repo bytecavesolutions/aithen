@@ -31,6 +31,9 @@ export async function GET(request: Request) {
   const offlineToken = url.searchParams.get("offline_token") === "true";
   const _account = url.searchParams.get("account");
 
+  // Extract credentials from Authorization header
+  const authHeader = request.headers.get("Authorization");
+
   // Validate required parameters
   if (!service) {
     return NextResponse.json(
@@ -43,8 +46,6 @@ export async function GET(request: Request) {
     );
   }
 
-  // Extract credentials from Authorization header
-  const authHeader = request.headers.get("Authorization");
   let username: string | null = null;
   let password: string | null = null;
 
@@ -59,6 +60,37 @@ export async function GET(request: Request) {
       username = credentials.slice(0, colonIndex);
       password = credentials.slice(colonIndex + 1);
     }
+  } else if (authHeader?.startsWith("Bearer ")) {
+    // Handle Bearer token (refresh token) authentication
+    const bearerToken = authHeader.slice(7);
+    const { verifyRegistryToken } = await import("@/lib/registry-token");
+    const claims = await verifyRegistryToken(bearerToken);
+    
+    if (claims) {
+      // Get user to check current permissions
+      const user = await db.query.users.findFirst({
+        where: eq(schema.users.username, claims.sub),
+      });
+      
+      if (user) {
+        // Parse scopes and generate new access with user's permissions
+        const parsedScopes = parseScopes(scope);
+        const isAdmin = user.role === "admin";
+        const grantedAccess = generateGrantedAccess(
+          parsedScopes,
+          claims.sub,
+          isAdmin,
+        );
+
+        const tokenResponse = await createRegistryToken(claims.sub, grantedAccess);
+        return NextResponse.json(tokenResponse);
+      }
+    }
+    
+    return NextResponse.json(
+      { errors: [{ code: "UNAUTHORIZED", message: "Invalid refresh token" }] },
+      { status: 401 },
+    );
   }
 
   // If no credentials and no scope, return anonymous token (for catalog browsing)

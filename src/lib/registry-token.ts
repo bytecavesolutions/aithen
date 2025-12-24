@@ -1,6 +1,7 @@
+import * as crypto from "node:crypto";
 import * as fs from "node:fs";
 import * as path from "node:path";
-import { importPKCS8, importSPKI, jwtVerify, SignJWT } from "jose";
+import { importPKCS8, importSPKI, importX509, jwtVerify, SignJWT } from "jose";
 import type {
   ParsedScope,
   RegistryTokenClaims,
@@ -26,6 +27,42 @@ const PUBLIC_CERT_PATH =
 // Cache for loaded keys
 let privateKey: Awaited<ReturnType<typeof importPKCS8>> | null = null;
 let publicKey: Awaited<ReturnType<typeof importSPKI>> | null = null;
+let rsaPublicKey: crypto.KeyObject | null = null;
+let cachedKid: string | null = null;
+
+/**
+ * Compute the JWK Thumbprint (RFC 7638) for a public key
+ * This is how Docker Registry v3 computes the "kid" from a certificate
+ */
+function computeJWKThumbprint(pubKey: crypto.KeyObject): string {
+  const jwk = pubKey.export({ format: "jwk" }) as {
+    kty: string;
+    n?: string;
+    e?: string;
+    crv?: string;
+    x?: string;
+    y?: string;
+  };
+
+  let payload: string;
+
+  if (jwk.kty === "RSA" && jwk.n && jwk.e) {
+    // RSA key - keys must be in lexicographical order: e, kty, n
+    // Use manual string construction to ensure exact order (JSON.stringify may reorder)
+    payload = `{"e":"${jwk.e}","kty":"RSA","n":"${jwk.n}"}`;
+  } else if (jwk.kty === "EC" && jwk.crv && jwk.x && jwk.y) {
+    // ECDSA key - keys must be in lexicographical order: crv, kty, x, y
+    payload = `{"crv":"${jwk.crv}","kty":"EC","x":"${jwk.x}","y":"${jwk.y}"}`;
+  } else {
+    throw new Error(`Unsupported key type: ${jwk.kty}`);
+  }
+
+  // SHA-256 hash of the JSON payload
+  const hash = crypto.createHash("sha256").update(payload).digest();
+  
+  // Base64url encode without padding
+  return hash.toString("base64url");
+}
 
 /**
  * Load the private key for signing tokens
@@ -61,8 +98,36 @@ async function getPublicKey() {
   }
 
   const certContent = fs.readFileSync(certPath, "utf-8");
-  publicKey = await importSPKI(certContent, "RS256");
+  
+  // Handle both x509 certificate and raw public key formats
+  if (certContent.includes("-----BEGIN CERTIFICATE-----")) {
+    publicKey = await importX509(certContent, "RS256");
+    // Also cache the crypto.KeyObject for JWKS and kid computation
+    const x509 = new crypto.X509Certificate(certContent);
+    rsaPublicKey = x509.publicKey;
+    // Compute and cache the JWK Thumbprint (kid) for this certificate
+    cachedKid = computeJWKThumbprint(rsaPublicKey);
+  } else {
+    // Fallback for raw SPKI public keys (legacy format)
+    publicKey = await importSPKI(certContent, "RS256");
+    rsaPublicKey = crypto.createPublicKey(certContent);
+    cachedKid = computeJWKThumbprint(rsaPublicKey);
+  }
+  
   return publicKey;
+}
+
+/**
+ * Get the computed kid (JWK Thumbprint) for the current certificate
+ */
+async function getKid(): Promise<string> {
+  if (!cachedKid) {
+    await getPublicKey();
+  }
+  if (!cachedKid) {
+    throw new Error("Failed to compute key ID");
+  }
+  return cachedKid;
 }
 
 /**
@@ -178,11 +243,14 @@ export async function createRegistryToken(
   const jti = crypto.randomUUID();
 
   const key = await getPrivateKey();
+  // Get the JWK Thumbprint (kid) that Docker Registry v3 expects
+  const kid = await getKid();
 
+  // Add kid (key id) header - must be JWK Thumbprint for Docker Registry v3
   const token = await new SignJWT({
     access,
   } as unknown as Record<string, unknown>)
-    .setProtectedHeader({ alg: "RS256", typ: "JWT" })
+    .setProtectedHeader({ alg: "RS256", typ: "JWT", kid })
     .setIssuer(REGISTRY_TOKEN_ISSUER)
     .setSubject(username)
     .setAudience(REGISTRY_SERVICE)
@@ -234,4 +302,66 @@ export function isUserRepository(
 ): boolean {
   const namespace = repositoryName.split("/")[0];
   return namespace?.toLowerCase() === username.toLowerCase();
+}
+/**
+ * JWKS Response type
+ */
+export interface JWKSResponse {
+  keys: JWK[];
+}
+
+interface JWK {
+  kty: string;
+  use: string;
+  alg: string;
+  kid: string;
+  n: string;
+  e: string;
+}
+
+/**
+ * Get JWKS (JSON Web Key Set) for Docker Registry v3 token verification
+ * This is the preferred method for registry to verify JWT tokens
+ */
+export async function getJWKS(): Promise<JWKSResponse> {
+  // Ensure public key is loaded and kid is computed
+  await getPublicKey();
+
+  if (!rsaPublicKey || !cachedKid) {
+    throw new Error("RSA public key not loaded");
+  }
+
+  // Export the public key in JWK format
+  const jwk = rsaPublicKey.export({ format: "jwk" }) as {
+    n: string;
+    e: string;
+    kty: string;
+  };
+
+  return {
+    keys: [
+      {
+        kty: jwk.kty,
+        use: "sig",
+        alg: "RS256",
+        kid: cachedKid, // Use the JWK Thumbprint as kid
+        n: jwk.n,
+        e: jwk.e,
+      },
+    ],
+  };
+}
+
+/**
+ * Get the computed key ID (JWK Thumbprint) for the current certificate
+ */
+export async function getComputedKid(): Promise<string> {
+  return getKid();
+}
+
+/**
+ * Get the token issuer
+ */
+export function getTokenIssuer(): string {
+  return REGISTRY_TOKEN_ISSUER;
 }

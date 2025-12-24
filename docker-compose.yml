@@ -10,7 +10,7 @@ services:
     volumes:
       - registry_data:/var/lib/registry
       - ./certs:/certs:ro
-      - ./registry-config.yml:/etc/docker/registry/config.yml:ro
+      - ./registry-config.yml:/etc/distribution/config.yml:ro
     healthcheck:
       test: ["CMD", "wget", "--spider", "-q", "http://localhost:5000/v2/"]
       interval: 30s
