@@ -87,7 +87,7 @@ export function UsersTable({ users, currentUserId }: UsersTableProps) {
               <TableHead>Email</TableHead>
               <TableHead>Role</TableHead>
               <TableHead>Created</TableHead>
-              <TableHead className="w-[70px]" />
+              <TableHead className="w-17.5" />
             </TableRow>
           </TableHeader>
           <TableBody>
