@@ -159,31 +159,26 @@ export function parseScopes(
 
 /**
  * Check if a user has permission to access a repository
- * Users can only access repositories in their own namespace (username/)
- * Admins can access all repositories
+ * Users (including admins) can only access repositories in their own namespace (username/)
+ * This enforces namespace isolation for all users
  */
 export function checkRepositoryAccess(
   repositoryName: string,
   username: string,
-  isAdmin: boolean,
   requestedActions: string[],
 ): string[] {
-  // Admins have full access to everything
-  if (isAdmin) {
-    return requestedActions;
-  }
-
   // Extract namespace from repository name
   const nameParts = repositoryName.split("/");
 
-  // If no namespace (just "imagename"), only admin can access
+  // If no namespace (just "imagename"), deny access
+  // All repositories must be namespaced
   if (nameParts.length === 1) {
-    return []; // No access for regular users to root-level repos
+    return []; // No access to root-level repos
   }
 
   const namespace = nameParts[0];
 
-  // Users can only access their own namespace
+  // All users (including admins) can only access their own namespace
   if (namespace.toLowerCase() === username.toLowerCase()) {
     return requestedActions;
   }
@@ -207,7 +202,6 @@ export function generateGrantedAccess(
       const grantedActions = checkRepositoryAccess(
         scope.name,
         username,
-        isAdmin,
         scope.actions,
       );
 
