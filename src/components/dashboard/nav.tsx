@@ -22,6 +22,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { cn } from "@/lib/utils";
+import { ThemeToggle } from "@/components/theme-toggle";
 
 interface DashboardNavProps {
   user: {
@@ -98,7 +99,9 @@ export function DashboardNav({ user }: DashboardNavProps) {
             </nav>
           </div>
 
-          <DropdownMenu>
+          <div className="flex items-center gap-2">
+            <ThemeToggle />
+            <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <Button
               variant="ghost"
@@ -140,6 +143,7 @@ export function DashboardNav({ user }: DashboardNavProps) {
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
+          </div>
         </div>
       </header>
 
