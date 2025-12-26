@@ -357,7 +357,7 @@ export async function getUserRepositories(
   const allRepos = await getCatalog();
 
   // Get user's namespaces from database
-  const { db } = await import("@/db");
+  const { db, schema } = await import("@/db");
   const { eq } = await import("drizzle-orm");
 
   const user = await db.query.users.findFirst({
