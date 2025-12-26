@@ -197,9 +197,9 @@ export async function GET(request: Request) {
     // Add refresh token if requested (for docker login persistence)
     // Note: Don't provide refresh tokens when using access tokens
     if (offlineToken && !isAccessToken) {
-      // For simplicity, we use the same token as refresh token
-      // In production, you might want a separate longer-lived token
-      tokenResponse.refresh_token = tokenResponse.token;
+      // Create a proper long-lived refresh token (7 days default)
+      const { createRefreshToken } = await import("@/lib/registry-token");
+      tokenResponse.refresh_token = await createRefreshToken(username);
     }
 
     return NextResponse.json(tokenResponse);

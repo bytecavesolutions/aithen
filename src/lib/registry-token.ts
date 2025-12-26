@@ -16,7 +16,11 @@ const REGISTRY_TOKEN_ISSUER =
 const REGISTRY_TOKEN_EXPIRY = Number.parseInt(
   process.env.REGISTRY_TOKEN_EXPIRY || "300",
   10,
-); // 5 minutes default
+); // 5 minutes default (short-lived access token)
+const REGISTRY_REFRESH_TOKEN_EXPIRY = Number.parseInt(
+  process.env.REGISTRY_REFRESH_TOKEN_EXPIRY || "604800",
+  10,
+); // 7 days default for refresh tokens
 
 // Paths to certificates (relative to project root)
 const PRIVATE_KEY_PATH =
@@ -344,6 +348,37 @@ export async function createRegistryToken(
     expires_in: REGISTRY_TOKEN_EXPIRY,
     issued_at: new Date(now * 1000).toISOString(),
   };
+}
+
+/**
+ * Create a long-lived refresh token for persistent docker login
+ * Refresh tokens have longer expiry and minimal access scope
+ */
+export async function createRefreshToken(
+  username: string,
+): Promise<string> {
+  const now = Math.floor(Date.now() / 1000);
+  const exp = now + REGISTRY_REFRESH_TOKEN_EXPIRY;
+  const jti = crypto.randomUUID();
+
+  const key = await getPrivateKey();
+  const kid = await getKid();
+
+  // Refresh token has no access scopes - it's only used to get new access tokens
+  const token = await new SignJWT({
+    token_type: "refresh_token",
+  } as unknown as Record<string, unknown>)
+    .setProtectedHeader({ alg: "RS256", typ: "JWT", kid })
+    .setIssuer(REGISTRY_TOKEN_ISSUER)
+    .setSubject(username)
+    .setAudience(REGISTRY_SERVICE)
+    .setExpirationTime(exp)
+    .setNotBefore(now)
+    .setIssuedAt(now)
+    .setJti(jti)
+    .sign(key);
+
+  return token;
 }
 
 /**
