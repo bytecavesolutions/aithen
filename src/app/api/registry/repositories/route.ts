@@ -70,14 +70,13 @@ export async function GET() {
     }
 
     // Regular user view: only their repositories
-    const repositories = await getUserRepositories(user.username);
+    const repositories = await getUserRepositories(user.id);
     const totalImages = repositories.reduce((sum, r) => sum + r.imageCount, 0);
 
     return NextResponse.json({
       repositories,
       totalRepositories: repositories.length,
       totalImages,
-      namespace: user.username.toLowerCase(),
       isAdmin: false,
     });
   } catch (error) {

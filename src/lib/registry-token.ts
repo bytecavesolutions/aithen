@@ -158,50 +158,134 @@ export function parseScopes(
 }
 
 /**
- * Check if a user has permission to access a repository
- * Users (including admins) can only access repositories in their own namespace (username/)
- * This enforces namespace isolation for all users
+ * Check if a user has permission to access a repository based on their namespaces
+ * - Admins can pull (read) from any repository (including orphans for management)
+ * - Admins can only push to existing namespaces
+ * - Users can only access namespaces they own (which must exist)
  */
-export function checkRepositoryAccess(
+export async function checkRepositoryAccess(
   repositoryName: string,
   username: string,
+  isAdmin: boolean,
   requestedActions: string[],
-): string[] {
+): Promise<string[]> {
   // Extract namespace from repository name
   const nameParts = repositoryName.split("/");
 
   // If no namespace (just "imagename"), deny access
   // All repositories must be namespaced
   if (nameParts.length === 1) {
+    console.log(
+      `[checkRepositoryAccess] Denied: Repository "${repositoryName}" has no namespace.`,
+    );
     return []; // No access to root-level repos
   }
 
   const namespace = nameParts[0];
+  const namespaceLower = namespace.toLowerCase();
 
-  // All users (including admins) can only access their own namespace
-  if (namespace.toLowerCase() === username.toLowerCase()) {
-    return requestedActions;
+  console.log(
+    `[checkRepositoryAccess] Checking access for user="${username}" isAdmin=${isAdmin} repo="${repositoryName}" namespace="${namespace}" actions=${JSON.stringify(requestedActions)}`,
+  );
+
+  try {
+    const { db, schema } = await import("@/db");
+
+    // Get all namespaces and do case-insensitive comparison
+    // (SQLite LIKE is case-insensitive for ASCII, but we do it in JS to be safe)
+    const allNamespaces = await db.query.namespaces.findMany({
+      columns: { id: true, name: true, userId: true },
+    });
+
+    const existingNamespace = allNamespaces.find(
+      (ns) => ns.name.toLowerCase() === namespaceLower,
+    );
+
+    const namespaceExists = !!existingNamespace;
+
+    console.log(
+      `[checkRepositoryAccess] Namespace "${namespace}" exists: ${namespaceExists}`,
+    );
+
+    // For admins:
+    // - Allow pull/delete on any repo (so they can view and clean up orphans)
+    // - Only allow push if namespace exists (prevent creating new orphans)
+    if (isAdmin) {
+      if (!namespaceExists) {
+        // Filter out "push" action for non-existent namespaces
+        const allowedActions = requestedActions.filter(
+          (action) => action !== "push",
+        );
+        console.log(
+          `[checkRepositoryAccess] Admin on orphan namespace "${namespace}": allowed=${JSON.stringify(allowedActions)}`,
+        );
+        return allowedActions;
+      }
+      // Namespace exists, admin gets full access
+      console.log(
+        `[checkRepositoryAccess] Admin granted full access to "${repositoryName}"`,
+      );
+      return requestedActions;
+    }
+
+    // For regular users: namespace must exist AND they must own it
+    if (!namespaceExists) {
+      console.log(
+        `[checkRepositoryAccess] User "${username}" denied: namespace "${namespace}" does not exist.`,
+      );
+      return [];
+    }
+
+    // Check if user owns the namespace
+    const { eq } = await import("drizzle-orm");
+    const user = await db.query.users.findFirst({
+      where: eq(schema.users.username, username),
+      columns: { id: true },
+    });
+
+    if (!user) {
+      console.log(
+        `[checkRepositoryAccess] User "${username}" not found in database.`,
+      );
+      return [];
+    }
+
+    // Check if the user owns this namespace
+    const userOwnsNamespace = existingNamespace.userId === user.id;
+
+    if (userOwnsNamespace) {
+      console.log(
+        `[checkRepositoryAccess] User "${username}" owns namespace "${namespace}", granted: ${JSON.stringify(requestedActions)}`,
+      );
+      return requestedActions;
+    }
+
+    console.log(
+      `[checkRepositoryAccess] User "${username}" does not own namespace "${namespace}". Access denied.`,
+    );
+    return [];
+  } catch (error) {
+    console.error("[checkRepositoryAccess] Error:", error);
+    return []; // Deny access on error
   }
-
-  // No access to other users' repositories
-  return [];
 }
 
 /**
  * Generate granted access based on user permissions
  */
-export function generateGrantedAccess(
+export async function generateGrantedAccess(
   scopes: ParsedScope[],
   username: string,
   isAdmin: boolean,
-): TokenAccess[] {
+): Promise<TokenAccess[]> {
   const access: TokenAccess[] = [];
 
   for (const scope of scopes) {
     if (scope.type === "repository") {
-      const grantedActions = checkRepositoryAccess(
+      const grantedActions = await checkRepositoryAccess(
         scope.name,
         username,
+        isAdmin,
         scope.actions,
       );
 

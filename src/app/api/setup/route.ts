@@ -82,7 +82,19 @@ export async function POST(request: Request) {
       .returning();
 
     console.log("✅ Created initial admin user:", username);
-
+    // Auto-create default namespace with username
+    try {
+      await db.insert(schema.namespaces).values({
+        name: username,
+        userId: newUser.id,
+        description: `Default namespace for ${username}`,
+        isDefault: true,
+      });
+      console.log("✅ Created default namespace:", username);
+    } catch (namespaceError) {
+      console.error("Failed to create default namespace:", namespaceError);
+      // Continue even if namespace creation fails - user is still created
+    }
     // Automatically log in the new admin user
     const sessionId = await createSession(newUser.id);
 

@@ -1,6 +1,6 @@
 import { Database } from "bun:sqlite";
 import path from "node:path";
-import { drizzle, type BunSQLiteDatabase } from "drizzle-orm/bun-sqlite";
+import { type BunSQLiteDatabase, drizzle } from "drizzle-orm/bun-sqlite";
 import { runMigrations } from "./migrate";
 import * as schema from "./schema";
 
@@ -15,7 +15,7 @@ let dbInstance: BunSQLiteDatabase<typeof schema> | null = null;
 if (!isBuildTime) {
   // Auto-run migrations on first startup (silent mode)
   await runMigrations(true);
-  
+
   sqlite = new Database(dbPath, { create: true });
   sqlite.exec("PRAGMA journal_mode = WAL;");
   dbInstance = drizzle(sqlite, { schema });

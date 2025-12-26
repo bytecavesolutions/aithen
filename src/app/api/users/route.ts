@@ -87,6 +87,19 @@ export async function POST(request: Request) {
       })
       .returning();
 
+    // Auto-create default namespace with username
+    try {
+      await db.insert(schema.namespaces).values({
+        name: username,
+        userId: newUser.id,
+        description: `Default namespace for ${username}`,
+        isDefault: true,
+      });
+    } catch (namespaceError) {
+      console.error("Failed to create default namespace:", namespaceError);
+      // Continue even if namespace creation fails - user is still created
+    }
+
     const { passwordHash: _, ...safeUser } = newUser;
 
     return NextResponse.json({ user: safeUser }, { status: 201 });

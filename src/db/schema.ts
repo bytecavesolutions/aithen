@@ -1,3 +1,4 @@
+import { relations } from "drizzle-orm";
 import { integer, sqliteTable, text } from "drizzle-orm/sqlite-core";
 
 export const users = sqliteTable("users", {
@@ -70,6 +71,24 @@ export const accessTokens = sqliteTable("access_tokens", {
     .$defaultFn(() => new Date()),
 });
 
+export const namespaces = sqliteTable("namespaces", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  name: text("name").notNull().unique(),
+  userId: integer("user_id")
+    .notNull()
+    .references(() => users.id, { onDelete: "cascade" }),
+  description: text("description"),
+  isDefault: integer("is_default", { mode: "boolean" })
+    .notNull()
+    .default(false),
+  createdAt: integer("created_at", { mode: "timestamp" })
+    .notNull()
+    .$defaultFn(() => new Date()),
+  updatedAt: integer("updated_at", { mode: "timestamp" })
+    .notNull()
+    .$defaultFn(() => new Date()),
+});
+
 export type User = typeof users.$inferSelect;
 export type NewUser = typeof users.$inferInsert;
 export type Session = typeof sessions.$inferSelect;
@@ -80,3 +99,20 @@ export type PasskeyVerification = typeof passkeyVerifications.$inferSelect;
 export type NewPasskeyVerification = typeof passkeyVerifications.$inferInsert;
 export type AccessToken = typeof accessTokens.$inferSelect;
 export type NewAccessToken = typeof accessTokens.$inferInsert;
+export type Namespace = typeof namespaces.$inferSelect;
+export type NewNamespace = typeof namespaces.$inferInsert;
+
+// Relations
+export const usersRelations = relations(users, ({ many }) => ({
+  sessions: many(sessions),
+  passkeys: many(passkeys),
+  accessTokens: many(accessTokens),
+  namespaces: many(namespaces),
+}));
+
+export const namespacesRelations = relations(namespaces, ({ one }) => ({
+  user: one(users, {
+    fields: [namespaces.userId],
+    references: [users.id],
+  }),
+}));

@@ -168,4 +168,6 @@ export interface UserRepository {
   tagCount: number;
   /** Detailed images with digest-to-tags mapping */
   images: ImageDetails[];
+  /** Whether this repository's namespace doesn't exist in the database */
+  isOrphan?: boolean;
 }

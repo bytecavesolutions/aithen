@@ -22,7 +22,14 @@ async function getRegistryAuthHeader(
     await import("./registry-token");
 
   const scopes = parseScopes(scope);
-  const access = generateGrantedAccess(scopes, "admin", true);
+  console.log(`[getRegistryAuthHeader] Parsed scopes:`, JSON.stringify(scopes));
+
+  const access = await generateGrantedAccess(scopes, "admin", true);
+  console.log(
+    `[getRegistryAuthHeader] Granted access:`,
+    JSON.stringify(access),
+  );
+
   const tokenResponse = await createRegistryToken("admin", access);
 
   return {
@@ -269,12 +276,16 @@ export async function deleteImage(
 ): Promise<boolean> {
   try {
     const url = `${REGISTRY_URL}/v2/${repository}/manifests/${digest}`;
-    const headers = await getRegistryAuthHeader(
-      `repository:${repository}:delete`,
-    );
+    const scope = `repository:${repository}:delete`;
+    console.log(`[deleteImage] Requesting auth header with scope: ${scope}`);
+
+    const headers = await getRegistryAuthHeader(scope);
 
     console.log(`[deleteImage] Deleting ${repository} with digest ${digest}`);
     console.log(`[deleteImage] URL: ${url}`);
+    console.log(
+      `[deleteImage] Auth header obtained: ${headers.Authorization ? "yes" : "no"}`,
+    );
 
     const response = await fetch(url, {
       method: "DELETE",
@@ -338,18 +349,37 @@ async function groupTagsByDigest(
 }
 
 /**
- * Get repositories for a specific user (by namespace)
+ * Get repositories for a specific user (by their namespaces)
  */
 export async function getUserRepositories(
-  username: string,
+  userId: number,
 ): Promise<UserRepository[]> {
   const allRepos = await getCatalog();
-  const userNamespace = username.toLowerCase();
 
-  // Filter repositories that belong to this user
+  // Get user's namespaces from database
+  const { db } = await import("@/db");
+  const { eq } = await import("drizzle-orm");
+
+  const user = await db.query.users.findFirst({
+    where: eq(schema.users.id, userId),
+    with: {
+      namespaces: true,
+    },
+  });
+
+  if (!user) {
+    return [];
+  }
+
+  // Create a set of lowercase namespace names for fast lookup
+  const userNamespaces = new Set(
+    user.namespaces.map((ns) => ns.name.toLowerCase()),
+  );
+
+  // Filter repositories that belong to any of this user's namespaces
   const userRepos = allRepos.filter((repo) => {
     const namespace = repo.split("/")[0];
-    return namespace?.toLowerCase() === userNamespace;
+    return namespace && userNamespaces.has(namespace.toLowerCase());
   });
 
   // Get tags for each repository
@@ -383,12 +413,22 @@ export async function getUserRepositories(
 
 /**
  * Get all repositories grouped by user (for admin view)
+ * Also identifies orphaned repositories (those without a matching namespace in the database)
  */
 export async function getAllRepositoriesGrouped(): Promise<
   Map<string, UserRepository[]>
 > {
   const allRepos = await getCatalog();
   const grouped = new Map<string, UserRepository[]>();
+
+  // Get all existing namespaces from the database
+  const { db } = await import("@/db");
+  const existingNamespaces = await db.query.namespaces.findMany({
+    columns: { name: true },
+  });
+  const namespaceSet = new Set(
+    existingNamespaces.map((ns) => ns.name.toLowerCase()),
+  );
 
   for (const repo of allRepos) {
     const parts = repo.split("/");
@@ -409,6 +449,13 @@ export async function getAllRepositoriesGrouped(): Promise<
     }
 
     const images = await groupTagsByDigest(repo, tags);
+    const isOrphan = !namespaceSet.has(namespace.toLowerCase());
+
+    if (isOrphan) {
+      console.log(
+        `[getAllRepositoriesGrouped] Found orphaned repository: ${repo} (namespace "${namespace}" does not exist)`,
+      );
+    }
 
     grouped.get(namespace)?.push({
       name: parts.slice(1).join("/") || parts[0],
@@ -418,6 +465,7 @@ export async function getAllRepositoriesGrouped(): Promise<
       tagCount: tags.length,
       imageCount: images.length,
       images,
+      isOrphan,
     });
   }
 

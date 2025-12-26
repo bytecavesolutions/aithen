@@ -91,6 +91,20 @@ export async function runMigrations(silent = false): Promise<void> {
     );
   `);
 
+  // Create namespaces table
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS namespaces (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      name TEXT NOT NULL UNIQUE,
+      user_id INTEGER NOT NULL,
+      description TEXT,
+      is_default INTEGER NOT NULL DEFAULT 0 CHECK(is_default IN (0, 1)),
+      created_at INTEGER NOT NULL DEFAULT (unixepoch()),
+      updated_at INTEGER NOT NULL DEFAULT (unixepoch()),
+      FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+    );
+  `);
+
   // Create indexes for better performance
   db.exec(`
     CREATE INDEX IF NOT EXISTS idx_users_username ON users(username);
@@ -102,6 +116,9 @@ export async function runMigrations(silent = false): Promise<void> {
     CREATE INDEX IF NOT EXISTS idx_access_tokens_user_id ON access_tokens(user_id);
     CREATE UNIQUE INDEX IF NOT EXISTS access_tokens_token_hash_unique ON access_tokens(token_hash);
     CREATE INDEX IF NOT EXISTS idx_access_tokens_expires_at ON access_tokens(expires_at);
+    CREATE INDEX IF NOT EXISTS idx_namespaces_user_id ON namespaces(user_id);
+    CREATE UNIQUE INDEX IF NOT EXISTS namespaces_name_unique ON namespaces(name);
+    CREATE INDEX IF NOT EXISTS idx_namespaces_is_default ON namespaces(is_default);
   `);
 
   db.close();

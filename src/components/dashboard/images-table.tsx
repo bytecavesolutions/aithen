@@ -1,6 +1,7 @@
 "use client";
 
 import {
+  AlertTriangle,
   ChevronDown,
   ChevronRight,
   Container,
@@ -53,6 +54,7 @@ interface UserRepository {
   imageCount: number;
   tagCount: number;
   images: ImageDetails[];
+  isOrphan?: boolean;
 }
 
 interface ImagesTableProps {
@@ -132,9 +134,26 @@ export function ImagesTable({
         // Refresh the page to show updated data
         window.location.reload();
       } else {
-        const error = await response.json();
-        console.error(`[ImagesTable] Delete failed:`, error);
-        alert(error.error || "Failed to delete image");
+        // Try to parse JSON, but handle non-JSON responses gracefully
+        let errorMessage = `Failed to delete image (HTTP ${response.status})`;
+        try {
+          const errorText = await response.text();
+          console.error(
+            `[ImagesTable] Delete failed - Status: ${response.status}, Response:`,
+            errorText,
+          );
+          if (errorText) {
+            try {
+              const errorJson = JSON.parse(errorText);
+              errorMessage = errorJson.error || errorMessage;
+            } catch {
+              errorMessage = errorText || errorMessage;
+            }
+          }
+        } catch (e) {
+          console.error(`[ImagesTable] Could not read error response:`, e);
+        }
+        alert(errorMessage);
       }
     } catch (error) {
       console.error(`[ImagesTable] Delete error:`, error);
@@ -324,6 +343,12 @@ export function ImagesTable({
                         <span className="font-medium font-mono">
                           {namespace}/
                         </span>
+                        {repos.some((r) => r.isOrphan) && (
+                          <Badge variant="destructive" className="gap-1">
+                            <AlertTriangle className="h-3 w-3" />
+                            No Namespace
+                          </Badge>
+                        )}
                         <Badge variant="secondary">
                           {repos.length}{" "}
                           {repos.length === 1 ? "repository" : "repositories"}

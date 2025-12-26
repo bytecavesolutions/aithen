@@ -77,7 +77,7 @@ export async function GET(request: Request) {
         // Parse scopes and generate new access with user's permissions
         const parsedScopes = parseScopes(scope);
         const isAdmin = user.role === "admin";
-        const grantedAccess = generateGrantedAccess(
+        const grantedAccess = await generateGrantedAccess(
           parsedScopes,
           claims.sub,
           isAdmin,
@@ -165,7 +165,12 @@ export async function GET(request: Request) {
     // If using an access token, filter actions by token permissions
     let grantedAccess: TokenAccess[];
     if (isAccessToken && tokenPermissions.length > 0) {
-      grantedAccess = generateGrantedAccess(parsedScopes, username, isAdmin)
+      const fullAccess = await generateGrantedAccess(
+        parsedScopes,
+        username,
+        isAdmin,
+      );
+      grantedAccess = fullAccess
         .map((access) => ({
           ...access,
           // Filter actions to only those allowed by the token
@@ -179,7 +184,11 @@ export async function GET(request: Request) {
         }))
         .filter((access) => access.actions.length > 0);
     } else {
-      grantedAccess = generateGrantedAccess(parsedScopes, username, isAdmin);
+      grantedAccess = await generateGrantedAccess(
+        parsedScopes,
+        username,
+        isAdmin,
+      );
     }
 
     // Generate token with granted access
@@ -250,7 +259,7 @@ export async function POST(request: Request) {
       // Parse scopes and generate new access
       const parsedScopes = parseScopes(scope);
       const isAdmin = user.role === "admin";
-      const grantedAccess = generateGrantedAccess(
+      const grantedAccess = await generateGrantedAccess(
         parsedScopes,
         claims.sub,
         isAdmin,

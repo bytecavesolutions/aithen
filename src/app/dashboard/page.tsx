@@ -45,7 +45,7 @@ export default async function DashboardPage() {
           imageCount += repos.reduce((sum, r) => sum + r.imageCount, 0);
         }
       } else {
-        const userRepos = await getUserRepositories(user.username);
+        const userRepos = await getUserRepositories(user.id);
         repositoryCount = userRepos.length;
         imageCount = userRepos.reduce((sum, r) => sum + r.imageCount, 0);
       }
@@ -151,7 +151,9 @@ export default async function DashboardPage() {
               /myimage:latest
             </p>
             <p className="mt-4 text-muted-foreground"># Push to registry</p>
-            <p>docker push {registryHost}/{user?.username}/myimage:latest</p>
+            <p>
+              docker push {registryHost}/{user?.username}/myimage:latest
+            </p>
           </div>
           <p className="text-sm text-muted-foreground">
             Use your Aithen username and password to authenticate.

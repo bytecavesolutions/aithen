@@ -98,4 +98,36 @@ export const deleteAccessTokenSchema = z.object({
 });
 
 export type CreateAccessTokenInput = z.infer<typeof createAccessTokenSchema>;
+
+// Namespace schemas
+export const createNamespaceSchema = z.object({
+  name: z
+    .string()
+    .min(3, "Namespace must be at least 3 characters")
+    .max(50, "Namespace must be less than 50 characters")
+    .regex(
+      /^[a-z0-9]([a-z0-9_-]*[a-z0-9])?$/,
+      "Namespace must start and end with lowercase letter or number, and can only contain lowercase letters, numbers, underscores, and hyphens",
+    ),
+  userId: z.number().int().positive("User ID is required"),
+  description: z
+    .string()
+    .max(255, "Description must be less than 255 characters")
+    .optional(),
+});
+
+export const updateNamespaceSchema = z.object({
+  description: z
+    .string()
+    .max(255, "Description must be less than 255 characters")
+    .optional(),
+});
+
+export const checkNamespaceSchema = z.object({
+  name: z.string().min(1, "Namespace name is required"),
+});
+
+export type CreateNamespaceInput = z.infer<typeof createNamespaceSchema>;
+export type UpdateNamespaceInput = z.infer<typeof updateNamespaceSchema>;
+export type CheckNamespaceInput = z.infer<typeof checkNamespaceSchema>;
 export type DeleteAccessTokenInput = z.infer<typeof deleteAccessTokenSchema>;
