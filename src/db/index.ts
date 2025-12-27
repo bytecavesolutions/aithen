@@ -18,6 +18,7 @@ if (!isBuildTime) {
 
   sqlite = new Database(dbPath, { create: true });
   sqlite.exec("PRAGMA journal_mode = WAL;");
+  sqlite.exec("PRAGMA foreign_keys = ON;");
   dbInstance = drizzle(sqlite, { schema });
 }
 

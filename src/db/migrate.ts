@@ -24,6 +24,7 @@ export async function runMigrations(silent = false): Promise<void> {
 
   const db = new Database(dbPath, { create: true });
   db.exec("PRAGMA journal_mode = WAL;");
+  db.exec("PRAGMA foreign_keys = ON;");
 
   // Create users table
   db.exec(`
