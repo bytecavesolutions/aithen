@@ -36,6 +36,10 @@ export async function GET(request: Request) {
   const offlineToken = url.searchParams.get("offline_token") === "true";
   const _account = url.searchParams.get("account");
 
+  console.log(
+    `[TokenEndpoint] Request: service="${service}" scope=${JSON.stringify(scope)} offlineToken=${offlineToken}`,
+  );
+
   // Extract credentials from Authorization header
   const authHeader = request.headers.get("Authorization");
 
@@ -56,6 +60,9 @@ export async function GET(request: Request) {
   } else if (authHeader?.startsWith("Bearer ")) {
     // Handle Bearer token (refresh token) authentication
     const bearerToken = authHeader.slice(7);
+    console.log(
+      `[TokenEndpoint] Bearer token auth, scope=${JSON.stringify(scope)}`,
+    );
     const { verifyRegistryToken } = await import("@/lib/registry-token");
     const claims = await verifyRegistryToken(bearerToken);
 
@@ -75,14 +82,20 @@ export async function GET(request: Request) {
           isAdmin,
         );
 
+        console.log(
+          `[TokenEndpoint] Bearer: User "${claims.sub}" isAdmin=${isAdmin} parsedScopes=${JSON.stringify(parsedScopes)} grantedAccess=${JSON.stringify(grantedAccess)}`,
+        );
+
         const tokenResponse = await createRegistryToken(
           claims.sub,
           grantedAccess,
+          service,
         );
         return NextResponse.json(tokenResponse);
       }
     }
 
+    console.log("[TokenEndpoint] Bearer token verification failed");
     return NextResponse.json(
       { errors: [{ code: "UNAUTHORIZED", message: "Invalid refresh token" }] },
       { status: 401 },
@@ -91,7 +104,7 @@ export async function GET(request: Request) {
 
   // If no credentials and no scope, return anonymous token (for catalog browsing)
   if (!username && scope.length === 0) {
-    const tokenResponse = await createRegistryToken("anonymous", []);
+    const tokenResponse = await createRegistryToken("anonymous", [], service);
     return NextResponse.json(tokenResponse);
   }
 
@@ -184,14 +197,21 @@ export async function GET(request: Request) {
     }
 
     // Generate token with granted access
-    const tokenResponse = await createRegistryToken(username, grantedAccess);
+    console.log(
+      `[TokenEndpoint] User "${username}" isAdmin=${isAdmin} grantedAccess=${JSON.stringify(grantedAccess)}`,
+    );
+    const tokenResponse = await createRegistryToken(
+      username,
+      grantedAccess,
+      service,
+    );
 
     // Add refresh token if requested (for docker login persistence)
     // Note: Don't provide refresh tokens when using access tokens
     if (offlineToken && !isAccessToken) {
       // Create a proper long-lived refresh token (7 days default)
       const { createRefreshToken } = await import("@/lib/registry-token");
-      tokenResponse.refresh_token = await createRefreshToken(username);
+      tokenResponse.refresh_token = await createRefreshToken(username, service);
     }
 
     return NextResponse.json(tokenResponse);
@@ -212,6 +232,8 @@ export async function POST(request: Request) {
   // For form-encoded requests (OAuth2 style)
   const contentType = request.headers.get("Content-Type");
 
+  console.log(`[TokenEndpoint POST] Content-Type: ${contentType}`);
+
   if (contentType?.includes("application/x-www-form-urlencoded")) {
     const formData = await request.formData();
     const grantType = formData.get("grant_type");
@@ -223,12 +245,17 @@ export async function POST(request: Request) {
       "aithen-registry";
     const _clientId = formData.get("client_id");
 
+    console.log(
+      `[TokenEndpoint POST] grantType=${grantType} hasRefreshToken=${!!refreshToken} scope=${JSON.stringify(scope)} service=${service}`,
+    );
+
     if (grantType === "refresh_token" && refreshToken) {
       // Verify refresh token and issue new access token
       const { verifyRegistryToken } = await import("@/lib/registry-token");
       const claims = await verifyRegistryToken(refreshToken as string);
 
       if (!claims) {
+        console.log("[TokenEndpoint POST] Refresh token verification failed");
         return NextResponse.json(
           {
             errors: [
@@ -260,9 +287,128 @@ export async function POST(request: Request) {
         isAdmin,
       );
 
+      console.log(
+        `[TokenEndpoint POST] Refresh: User "${claims.sub}" isAdmin=${isAdmin} grantedAccess=${JSON.stringify(grantedAccess)}`,
+      );
+
       const tokenResponse = await createRegistryToken(
         claims.sub,
         grantedAccess,
+        service,
+      );
+      return NextResponse.json(tokenResponse);
+    }
+
+    // Handle password grant type (Docker client uses this for token refresh with stored credentials)
+    if (grantType === "password") {
+      const username = formData.get("username") as string;
+      const password = formData.get("password") as string;
+
+      if (!username || !password) {
+        return NextResponse.json(
+          {
+            errors: [
+              { code: "INVALID_REQUEST", message: "Missing username or password" },
+            ],
+          },
+          { status: 400 },
+        );
+      }
+
+      const user = await db.query.users.findFirst({
+        where: eq(schema.users.username, username),
+      });
+
+      if (!user) {
+        return NextResponse.json(
+          { errors: [{ code: "UNAUTHORIZED", message: "Invalid credentials" }] },
+          { status: 401 },
+        );
+      }
+
+      // Try password authentication first
+      let passwordValid = await verifyPassword(password, user.passwordHash);
+      let isAccessToken = false;
+      let tokenPermissions: string[] = [];
+
+      // If password fails and input looks like an access token, try token authentication
+      if (!passwordValid && password.startsWith("ait_")) {
+        // Find all access tokens for this user
+        const tokens = await db.query.accessTokens.findMany({
+          where: eq(schema.accessTokens.userId, user.id),
+        });
+
+        // Try to verify against each token hash
+        for (const token of tokens) {
+          // Check if token is expired
+          if (token.expiresAt && token.expiresAt < new Date()) {
+            continue;
+          }
+
+          const tokenValid = await verifyAccessToken(password, token.tokenHash);
+          if (tokenValid) {
+            passwordValid = true;
+            isAccessToken = true;
+            tokenPermissions = token.permissions.split(",");
+
+            // Update last used timestamp
+            await db
+              .update(schema.accessTokens)
+              .set({ lastUsedAt: new Date() })
+              .where(eq(schema.accessTokens.id, token.id));
+            break;
+          }
+        }
+      }
+
+      if (!passwordValid) {
+        return NextResponse.json(
+          { errors: [{ code: "UNAUTHORIZED", message: "Invalid credentials" }] },
+          { status: 401 },
+        );
+      }
+
+      // Parse scopes and generate access
+      const parsedScopes = parseScopes(scope);
+      const isAdmin = user.role === "admin";
+
+      // If using an access token, filter actions by token permissions
+      let grantedAccess: TokenAccess[];
+      if (isAccessToken && tokenPermissions.length > 0) {
+        const fullAccess = await generateGrantedAccess(
+          parsedScopes,
+          username,
+          isAdmin,
+        );
+        grantedAccess = fullAccess
+          .map((access) => ({
+            ...access,
+            // Filter actions to only those allowed by the token
+            actions: access.actions.filter((action) =>
+              action === "*"
+                ? tokenPermissions.includes("push") &&
+                  tokenPermissions.includes("pull") &&
+                  tokenPermissions.includes("delete")
+                : tokenPermissions.includes(action),
+            ) as ("push" | "pull" | "delete" | "*")[],
+          }))
+          .filter((access) => access.actions.length > 0);
+      } else {
+        grantedAccess = await generateGrantedAccess(
+          parsedScopes,
+          username,
+          isAdmin,
+        );
+      }
+
+      console.log(
+        `[TokenEndpoint POST] Password grant: User "${username}" isAdmin=${isAdmin} isAccessToken=${isAccessToken} grantedAccess=${JSON.stringify(grantedAccess)}`,
+      );
+
+      const tokenResponse = await createRegistryToken(
+        username,
+        grantedAccess,
+        service,
       );
       return NextResponse.json(tokenResponse);
     }

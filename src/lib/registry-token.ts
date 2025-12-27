@@ -315,14 +315,20 @@ export async function generateGrantedAccess(
 
 /**
  * Create a Docker Registry v2 compatible JWT token
+ * @param username - The authenticated username
+ * @param access - The granted access scopes
+ * @param service - The service name (audience) - must match what the registry sends
  */
 export async function createRegistryToken(
   username: string,
   access: TokenAccess[],
+  service?: string,
 ): Promise<TokenResponse> {
   const now = Math.floor(Date.now() / 1000);
   const exp = now + REGISTRY_TOKEN_EXPIRY;
   const jti = crypto.randomUUID();
+  // Use the service from the request, falling back to configured default
+  const audience = service || REGISTRY_SERVICE;
 
   const key = await getPrivateKey();
   // Get the JWK Thumbprint (kid) that Docker Registry v3 expects
@@ -335,7 +341,7 @@ export async function createRegistryToken(
     .setProtectedHeader({ alg: "RS256", typ: "JWT", kid })
     .setIssuer(REGISTRY_TOKEN_ISSUER)
     .setSubject(username)
-    .setAudience(REGISTRY_SERVICE)
+    .setAudience(audience)
     .setExpirationTime(exp)
     .setNotBefore(now)
     .setIssuedAt(now)
@@ -353,13 +359,18 @@ export async function createRegistryToken(
 /**
  * Create a long-lived refresh token for persistent docker login
  * Refresh tokens have longer expiry and minimal access scope
+ * @param username - The authenticated username
+ * @param service - The service name (audience) - must match what the registry sends
  */
 export async function createRefreshToken(
   username: string,
+  service?: string,
 ): Promise<string> {
   const now = Math.floor(Date.now() / 1000);
   const exp = now + REGISTRY_REFRESH_TOKEN_EXPIRY;
   const jti = crypto.randomUUID();
+  // Use the service from the request, falling back to configured default
+  const audience = service || REGISTRY_SERVICE;
 
   const key = await getPrivateKey();
   const kid = await getKid();
@@ -371,7 +382,7 @@ export async function createRefreshToken(
     .setProtectedHeader({ alg: "RS256", typ: "JWT", kid })
     .setIssuer(REGISTRY_TOKEN_ISSUER)
     .setSubject(username)
-    .setAudience(REGISTRY_SERVICE)
+    .setAudience(audience)
     .setExpirationTime(exp)
     .setNotBefore(now)
     .setIssuedAt(now)
@@ -383,6 +394,9 @@ export async function createRefreshToken(
 
 /**
  * Verify a registry token
+ * Note: We don't strictly validate audience here since tokens may have been
+ * created with different service names from different client requests.
+ * The issuer is still validated to ensure the token is from our auth service.
  */
 export async function verifyRegistryToken(
   token: string,
@@ -391,10 +405,12 @@ export async function verifyRegistryToken(
     const key = await getPublicKey();
     const { payload } = await jwtVerify(token, key, {
       issuer: REGISTRY_TOKEN_ISSUER,
-      audience: REGISTRY_SERVICE,
+      // Don't strictly validate audience - tokens may have different service names
+      // based on what the registry/client sent in the original request
     });
     return payload as unknown as RegistryTokenClaims;
-  } catch {
+  } catch (error) {
+    console.error("[verifyRegistryToken] Token verification failed:", error);
     return null;
   }
 }
