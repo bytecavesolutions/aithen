@@ -155,18 +155,45 @@ export async function getImageManifest(
     const digest = response.headers.get("Docker-Content-Digest") || "";
 
     console.log(`[getImageManifest] Got digest: ${digest}`);
-
-    // Calculate total size from layers
-    const layers = manifest.layers || [];
-    const configSize = manifest.config?.size || 0;
-    const layersSize = layers.reduce(
-      (sum: number, layer: { size?: number }) => sum + (layer.size || 0),
-      0,
+    console.log(
+      `[getImageManifest] Manifest schema version: ${manifest.schemaVersion}, media type: ${manifest.mediaType}`,
     );
+
+    let totalSize = 0;
+
+    // Handle manifest lists / image indexes (multi-architecture images)
+    if (
+      manifest.mediaType ===
+        "application/vnd.docker.distribution.manifest.list.v2+json" ||
+      manifest.mediaType === "application/vnd.oci.image.index.v1+json"
+    ) {
+      console.log(
+        `[getImageManifest] Detected manifest list with ${manifest.manifests?.length || 0} manifests`,
+      );
+      // For manifest lists, sum up all the manifests
+      const manifests = manifest.manifests || [];
+      totalSize = manifests.reduce(
+        (sum: number, m: { size?: number }) => sum + (m.size || 0),
+        0,
+      );
+    } else {
+      // Handle regular manifests (v2, OCI)
+      const layers = manifest.layers || [];
+      const configSize = manifest.config?.size || 0;
+      const layersSize = layers.reduce(
+        (sum: number, layer: { size?: number }) => sum + (layer.size || 0),
+        0,
+      );
+      totalSize = configSize + layersSize;
+
+      console.log(
+        `[getImageManifest] Calculated size - config: ${configSize}, layers: ${layersSize}, total: ${totalSize}`,
+      );
+    }
 
     return {
       digest,
-      size: configSize + layersSize,
+      size: totalSize,
       config: manifest.config,
     };
   } catch (error) {
@@ -240,17 +267,36 @@ export async function getDetailedManifest(
 
     const layers = manifest.layers || [];
     const configSize = manifest.config?.size || 0;
-    const layersSize = layers.reduce(
-      (sum: number, layer: { size?: number }) => sum + (layer.size || 0),
-      0,
-    );
+
+    let totalSize = 0;
+
+    // Handle manifest lists / image indexes (multi-architecture images)
+    if (
+      manifest.mediaType ===
+        "application/vnd.docker.distribution.manifest.list.v2+json" ||
+      manifest.mediaType === "application/vnd.oci.image.index.v1+json"
+    ) {
+      // For manifest lists, sum up all the manifests
+      const manifests = manifest.manifests || [];
+      totalSize = manifests.reduce(
+        (sum: number, m: { size?: number }) => sum + (m.size || 0),
+        0,
+      );
+    } else {
+      // Handle regular manifests (v2, OCI)
+      const layersSize = layers.reduce(
+        (sum: number, layer: { size?: number }) => sum + (layer.size || 0),
+        0,
+      );
+      totalSize = configSize + layersSize;
+    }
 
     return {
       digest: returnedDigest,
       mediaType:
         manifest.mediaType ||
         "application/vnd.docker.distribution.manifest.v2+json",
-      size: configSize + layersSize,
+      size: totalSize,
       config: manifest.config || null,
       layers: layers.map(
         (layer: { mediaType?: string; size?: number; digest?: string }) => ({
