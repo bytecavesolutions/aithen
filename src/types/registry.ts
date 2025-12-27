@@ -136,6 +136,36 @@ export interface ImageInfo {
 }
 
 /**
+ * Platform information for multi-arch images
+ */
+export interface PlatformInfo {
+  /** Architecture (e.g., amd64, arm64, arm/v7) */
+  architecture: string;
+  /** OS (e.g., linux, windows) */
+  os: string;
+  /** Variant (e.g., v7, v8 for ARM) */
+  variant?: string;
+  /** Digest for this specific platform manifest */
+  digest: string;
+  /** Size of this platform's image */
+  size: number;
+  /** Number of layers in this platform's image */
+  layerCount: number;
+}
+
+/**
+ * Layer information
+ */
+export interface LayerInfo {
+  /** Layer digest */
+  digest: string;
+  /** Media type */
+  mediaType: string;
+  /** Compressed size in bytes */
+  size: number;
+}
+
+/**
  * Detailed image information with digest and associated tags
  */
 export interface ImageDetails {
@@ -147,10 +177,18 @@ export interface ImageDetails {
   size: number;
   /** Created timestamp (if available) */
   created?: string;
-  /** Architecture (e.g., amd64, arm64) */
+  /** Architecture (e.g., amd64, arm64) - for single-arch images */
   architecture?: string;
-  /** OS (e.g., linux, windows) */
+  /** OS (e.g., linux, windows) - for single-arch images */
   os?: string;
+  /** Whether this is a multi-architecture manifest list */
+  isMultiArch?: boolean;
+  /** Platform information for multi-arch images */
+  platforms?: PlatformInfo[];
+  /** Number of layers (for single-arch) or total across platforms */
+  layerCount?: number;
+  /** Media type of the manifest */
+  mediaType?: string;
 }
 
 /**

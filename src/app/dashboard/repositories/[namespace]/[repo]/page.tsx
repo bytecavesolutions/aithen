@@ -1,4 +1,4 @@
-import { ArrowLeft, Container, Copy, Hash, Tag } from "lucide-react";
+import { ArrowLeft, Container, Copy, Cpu, Hash, Layers, Tag } from "lucide-react";
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { Badge } from "@/components/ui/badge";
@@ -34,6 +34,32 @@ function truncateDigest(digest: string): string {
   if (!digest) return "";
   const hash = digest.replace("sha256:", "");
   return hash.substring(0, 12);
+}
+
+function getArchitectureColor(arch: string): string {
+  if (arch.includes("amd64") || arch.includes("x86_64")) {
+    return "bg-blue-500/10 text-blue-600 dark:text-blue-400 border-blue-500/20";
+  }
+  if (arch.includes("arm64") || arch.includes("aarch64")) {
+    return "bg-green-500/10 text-green-600 dark:text-green-400 border-green-500/20";
+  }
+  if (arch.includes("arm")) {
+    return "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20";
+  }
+  if (arch.includes("386") || arch.includes("i386")) {
+    return "bg-orange-500/10 text-orange-600 dark:text-orange-400 border-orange-500/20";
+  }
+  if (arch.includes("s390x") || arch.includes("ppc64")) {
+    return "bg-purple-500/10 text-purple-600 dark:text-purple-400 border-purple-500/20";
+  }
+  return "bg-muted text-muted-foreground";
+}
+
+function formatPlatform(arch: string, os?: string): string {
+  if (os && os !== "linux") {
+    return `${os}/${arch}`;
+  }
+  return arch;
 }
 
 export default async function RepositoryPage({ params }: RepositoryPageProps) {
@@ -139,6 +165,8 @@ export default async function RepositoryPage({ params }: RepositoryPageProps) {
               <TableRow>
                 <TableHead>Digest</TableHead>
                 <TableHead>Tags</TableHead>
+                <TableHead>Architecture</TableHead>
+                <TableHead>Layers</TableHead>
                 <TableHead className="text-right">Size</TableHead>
                 <TableHead className="text-right w-20">Actions</TableHead>
               </TableRow>
@@ -178,6 +206,53 @@ export default async function RepositoryPage({ params }: RepositoryPageProps) {
                         </Badge>
                       ))}
                     </div>
+                  </TableCell>
+                  <TableCell>
+                    <div className="flex flex-wrap gap-1">
+                      {image.isMultiArch && image.platforms ? (
+                        <>
+                          {image.platforms
+                            .filter((p) => p.architecture !== "unknown" && p.os !== "unknown")
+                            .slice(0, 3)
+                            .map((p) => (
+                              <Badge
+                                key={p.digest}
+                                variant="outline"
+                                className={`text-xs ${getArchitectureColor(p.architecture)}`}
+                                title={`${p.os}/${p.architecture} - ${formatBytes(p.size)} (${p.layerCount} layers)`}
+                              >
+                                <Cpu className="mr-1 h-3 w-3" />
+                                {formatPlatform(p.architecture, p.os)}
+                              </Badge>
+                            ))}
+                          {image.platforms.filter((p) => p.architecture !== "unknown" && p.os !== "unknown").length > 3 && (
+                            <Badge variant="outline" className="text-xs">
+                              +{image.platforms.filter((p) => p.architecture !== "unknown" && p.os !== "unknown").length - 3}
+                            </Badge>
+                          )}
+                        </>
+                      ) : image.architecture && image.architecture !== "unknown" ? (
+                        <Badge
+                          variant="outline"
+                          className={`text-xs ${getArchitectureColor(image.architecture)}`}
+                        >
+                          <Cpu className="mr-1 h-3 w-3" />
+                          {formatPlatform(image.architecture, image.os)}
+                        </Badge>
+                      ) : (
+                        <span className="text-xs text-muted-foreground">—</span>
+                      )}
+                    </div>
+                  </TableCell>
+                  <TableCell>
+                    {image.layerCount !== undefined && image.layerCount > 0 ? (
+                      <div className="flex items-center gap-1 text-sm text-muted-foreground">
+                        <Layers className="h-3.5 w-3.5" />
+                        <span>{image.layerCount}</span>
+                      </div>
+                    ) : (
+                      <span className="text-xs text-muted-foreground">—</span>
+                    )}
                   </TableCell>
                   <TableCell className="text-right font-mono text-sm">
                     {formatBytes(image.size)}

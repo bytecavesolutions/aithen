@@ -2,6 +2,8 @@ import type {
   CatalogResponse,
   ImageDetails,
   ImageInfo,
+  LayerInfo,
+  PlatformInfo,
   TagsListResponse,
   UserRepository,
 } from "@/types/registry";
@@ -104,6 +106,7 @@ export async function getRepositoryTags(repository: string): Promise<string[]> {
 
 /**
  * Get manifest for a specific image tag
+ * Returns detailed information including multi-arch platform data
  */
 export async function getImageManifest(
   repository: string,
@@ -112,6 +115,12 @@ export async function getImageManifest(
   digest: string;
   size: number;
   config: unknown;
+  isMultiArch: boolean;
+  platforms?: PlatformInfo[];
+  architecture?: string;
+  os?: string;
+  layerCount: number;
+  mediaType: string;
 } | null> {
   try {
     const url = `${REGISTRY_URL}/v2/${repository}/manifests/${reference}`;
@@ -153,28 +162,85 @@ export async function getImageManifest(
 
     const manifest = await response.json();
     const digest = response.headers.get("Docker-Content-Digest") || "";
+    const mediaType =
+      manifest.mediaType ||
+      response.headers.get("Content-Type") ||
+      "application/vnd.docker.distribution.manifest.v2+json";
 
     console.log(`[getImageManifest] Got digest: ${digest}`);
     console.log(
-      `[getImageManifest] Manifest schema version: ${manifest.schemaVersion}, media type: ${manifest.mediaType}`,
+      `[getImageManifest] Manifest schema version: ${manifest.schemaVersion}, media type: ${mediaType}`,
     );
 
     let totalSize = 0;
+    let isMultiArch = false;
+    let platforms: PlatformInfo[] | undefined;
+    let architecture: string | undefined;
+    let os: string | undefined;
+    let layerCount = 0;
 
     // Handle manifest lists / image indexes (multi-architecture images)
     if (
-      manifest.mediaType ===
-        "application/vnd.docker.distribution.manifest.list.v2+json" ||
-      manifest.mediaType === "application/vnd.oci.image.index.v1+json"
+      mediaType === "application/vnd.docker.distribution.manifest.list.v2+json" ||
+      mediaType === "application/vnd.oci.image.index.v1+json"
     ) {
-      console.log(
-        `[getImageManifest] Detected manifest list with ${manifest.manifests?.length || 0} manifests`,
-      );
-      // For manifest lists, sum up all the manifests
+      isMultiArch = true;
       const manifests = manifest.manifests || [];
-      totalSize = manifests.reduce(
-        (sum: number, m: { size?: number }) => sum + (m.size || 0),
-        0,
+      console.log(
+        `[getImageManifest] Detected manifest list with ${manifests.length} manifests`,
+      );
+
+      // Fetch details for each platform
+      platforms = [];
+      for (const m of manifests) {
+        const platform = m.platform || {};
+        const platformDigest = m.digest;
+        const platformSize = m.size || 0;
+
+        // Fetch the actual manifest for this platform to get layer count
+        let platformLayerCount = 0;
+        let platformTotalSize = platformSize;
+        try {
+          const platformManifest = await fetchPlatformManifest(
+            repository,
+            platformDigest,
+          );
+          if (platformManifest) {
+            platformLayerCount = platformManifest.layers?.length || 0;
+            // Calculate actual size from layers + config
+            const configSize = platformManifest.config?.size || 0;
+            const layersSize = (platformManifest.layers || []).reduce(
+              (sum: number, layer: { size?: number }) => sum + (layer.size || 0),
+              0,
+            );
+            platformTotalSize = configSize + layersSize;
+          }
+        } catch (e) {
+          console.error(
+            `[getImageManifest] Error fetching platform manifest for ${platformDigest}:`,
+            e,
+          );
+        }
+
+        totalSize += platformTotalSize;
+        layerCount += platformLayerCount;
+
+        const archWithVariant = platform.variant
+          ? `${platform.architecture}/${platform.variant}`
+          : platform.architecture;
+
+        platforms.push({
+          architecture: archWithVariant || "unknown",
+          os: platform.os || "unknown",
+          variant: platform.variant,
+          digest: platformDigest,
+          size: platformTotalSize,
+          layerCount: platformLayerCount,
+        });
+      }
+
+      console.log(
+        `[getImageManifest] Multi-arch image with ${platforms.length} platforms, total size: ${totalSize}`,
       );
     } else {
       // Handle regular manifests (v2, OCI)
@@ -185,9 +251,27 @@ export async function getImageManifest(
         0,
       );
       totalSize = configSize + layersSize;
+      layerCount = layers.length;
+
+      // Fetch config blob to get architecture/os info
+      if (manifest.config?.digest) {
+        try {
+          const configData = await fetchConfigBlob(repository, manifest.config.digest);
+          if (configData) {
+            architecture = configData.architecture;
+            os = configData.os;
+            // Handle variant (e.g., arm/v7)
+            if (configData.variant) {
+              architecture = `${architecture}/${configData.variant}`;
+            }
+          }
+        } catch (e) {
+          console.error(`[getImageManifest] Error fetching config blob:`, e);
+        }
+      }
 
       console.log(
-        `[getImageManifest] Calculated size - config: ${configSize}, layers: ${layersSize}, total: ${totalSize}`,
+        `[getImageManifest] Calculated size - config: ${configSize}, layers: ${layersSize}, total: ${totalSize}, layerCount: ${layerCount}, arch: ${architecture}, os: ${os}`,
       );
     }
 
@@ -195,6 +279,12 @@ export async function getImageManifest(
       digest,
       size: totalSize,
       config: manifest.config,
+      isMultiArch,
+      platforms,
+      architecture,
+      os,
+      layerCount,
+      mediaType,
     };
   } catch (error) {
     console.error("[getImageManifest] Error fetching manifest:", error);
@@ -203,32 +293,15 @@ export async function getImageManifest(
 }
 
 /**
- * Detailed manifest information for display
+ * Fetch a platform-specific manifest (for multi-arch images)
  */
-export interface DetailedManifest {
-  digest: string;
-  mediaType: string;
-  size: number;
-  config: {
-    mediaType: string;
-    size: number;
-    digest: string;
-  } | null;
-  layers: {
-    mediaType: string;
-    size: number;
-    digest: string;
-  }[];
-  tags: string[];
-}
-
-/**
- * Get detailed manifest information for an image by digest
- */
-export async function getDetailedManifest(
+async function fetchPlatformManifest(
   repository: string,
   digest: string,
-): Promise<DetailedManifest | null> {
+): Promise<{
+  config?: { size?: number; digest?: string; mediaType?: string };
+  layers?: { size?: number; digest?: string; mediaType?: string }[];
+} | null> {
   try {
     const url = `${REGISTRY_URL}/v2/${repository}/manifests/${digest}`;
     const headers = await getRegistryAuthHeader(
@@ -246,6 +319,114 @@ export async function getDetailedManifest(
     });
 
     if (!response.ok) {
+      return null;
+    }
+
+    return response.json();
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Fetch config blob to get architecture/os information
+ */
+async function fetchConfigBlob(
+  repository: string,
+  digest: string,
+): Promise<{
+  architecture?: string;
+  os?: string;
+  variant?: string;
+} | null> {
+  try {
+    const url = `${REGISTRY_URL}/v2/${repository}/blobs/${digest}`;
+    const headers = await getRegistryAuthHeader(
+      `repository:${repository}:pull`,
+    );
+
+    const response = await fetch(url, {
+      headers: {
+        Accept: "application/json",
+        ...headers,
+      },
+    });
+
+    if (!response.ok) {
+      return null;
+    }
+
+    const config = await response.json();
+    return {
+      architecture: config.architecture,
+      os: config.os,
+      variant: config.variant,
+    };
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Detailed manifest information for display
+ */
+export interface DetailedManifest {
+  digest: string;
+  mediaType: string;
+  size: number;
+  config: {
+    mediaType: string;
+    size: number;
+    digest: string;
+  } | null;
+  layers: LayerInfo[];
+  tags: string[];
+  /** Whether this is a multi-architecture manifest list */
+  isMultiArch: boolean;
+  /** Platform information for multi-arch images */
+  platforms?: {
+    architecture: string;
+    os: string;
+    variant?: string;
+    digest: string;
+    size: number;
+    layerCount: number;
+    layers: LayerInfo[];
+    config: {
+      mediaType: string;
+      size: number;
+      digest: string;
+    } | null;
+  }[];
+}
+
+/**
+ * Get detailed manifest information for an image by digest
+ */
+export async function getDetailedManifest(
+  repository: string,
+  digest: string,
+): Promise<DetailedManifest | null> {
+  try {
+    const url = `${REGISTRY_URL}/v2/${repository}/manifests/${digest}`;
+    const headers = await getRegistryAuthHeader(
+      `repository:${repository}:pull`,
+    );
+
+    // First, try to fetch as manifest list to detect multi-arch
+    const response = await fetch(url, {
+      headers: {
+        Accept: [
+          "application/vnd.docker.distribution.manifest.list.v2+json",
+          "application/vnd.oci.image.index.v1+json",
+          "application/vnd.docker.distribution.manifest.v2+json",
+          "application/vnd.oci.image.manifest.v1+json",
+        ].join(", "),
+        ...headers,
+      },
+    });
+
+    if (!response.ok) {
       console.error(`[getDetailedManifest] Failed: ${response.status}`);
       return null;
     }
@@ -253,6 +434,10 @@ export async function getDetailedManifest(
     const manifest = await response.json();
     const returnedDigest =
       response.headers.get("Docker-Content-Digest") || digest;
+    const mediaType =
+      manifest.mediaType ||
+      response.headers.get("Content-Type") ||
+      "application/vnd.docker.distribution.manifest.v2+json";
 
     // Get all tags that point to this digest
     const allTags = await getRepositoryTags(repository);
@@ -265,37 +450,100 @@ export async function getDetailedManifest(
       }
     }
 
+    // Check if this is a manifest list (multi-arch)
+    const isMultiArch =
+      mediaType === "application/vnd.docker.distribution.manifest.list.v2+json" ||
+      mediaType === "application/vnd.oci.image.index.v1+json";
+
+    if (isMultiArch) {
+      const manifests = manifest.manifests || [];
+      let totalSize = 0;
+
+      // Fetch details for each platform
+      const platforms: DetailedManifest["platforms"] = [];
+
+      for (const m of manifests) {
+        const platform = m.platform || {};
+        const platformDigest = m.digest;
+
+        // Fetch the actual manifest for this platform
+        const platformManifest = await fetchPlatformManifest(
+          repository,
+          platformDigest,
+        );
+
+        const platformLayers: LayerInfo[] = [];
+        let platformSize = m.size || 0;
+        let platformConfig: DetailedManifest["config"] = null;
+
+        if (platformManifest) {
+          const layers = platformManifest.layers || [];
+          const configSize = platformManifest.config?.size || 0;
+          const layersSize = layers.reduce(
+            (sum: number, layer: { size?: number }) => sum + (layer.size || 0),
+            0,
+          );
+          platformSize = configSize + layersSize;
+
+          for (const layer of layers) {
+            platformLayers.push({
+              mediaType: layer.mediaType || "",
+              size: layer.size || 0,
+              digest: layer.digest || "",
+            });
+          }
+
+          if (platformManifest.config) {
+            platformConfig = {
+              mediaType: platformManifest.config.mediaType || "",
+              size: platformManifest.config.size || 0,
+              digest: platformManifest.config.digest || "",
+            };
+          }
+        }
+
+        totalSize += platformSize;
+
+        const archWithVariant = platform.variant
+          ? `${platform.architecture}/${platform.variant}`
+          : platform.architecture;
+
+        platforms.push({
+          architecture: archWithVariant || "unknown",
+          os: platform.os || "unknown",
+          variant: platform.variant,
+          digest: platformDigest,
+          size: platformSize,
+          layerCount: platformLayers.length,
+          layers: platformLayers,
+          config: platformConfig,
+        });
+      }
+
+      return {
+        digest: returnedDigest,
+        mediaType,
+        size: totalSize,
+        config: null,
+        layers: [],
+        tags: matchingTags,
+        isMultiArch: true,
+        platforms,
+      };
+    }
+
+    // Handle regular single-arch manifest
     const layers = manifest.layers || [];
     const configSize = manifest.config?.size || 0;
-
-    let totalSize = 0;
-
-    // Handle manifest lists / image indexes (multi-architecture images)
-    if (
-      manifest.mediaType ===
-        "application/vnd.docker.distribution.manifest.list.v2+json" ||
-      manifest.mediaType === "application/vnd.oci.image.index.v1+json"
-    ) {
-      // For manifest lists, sum up all the manifests
-      const manifests = manifest.manifests || [];
-      totalSize = manifests.reduce(
-        (sum: number, m: { size?: number }) => sum + (m.size || 0),
-        0,
-      );
-    } else {
-      // Handle regular manifests (v2, OCI)
-      const layersSize = layers.reduce(
-        (sum: number, layer: { size?: number }) => sum + (layer.size || 0),
-        0,
-      );
-      totalSize = configSize + layersSize;
-    }
+    const layersSize = layers.reduce(
+      (sum: number, layer: { size?: number }) => sum + (layer.size || 0),
+      0,
+    );
+    const totalSize = configSize + layersSize;
 
     return {
       digest: returnedDigest,
-      mediaType:
-        manifest.mediaType ||
-        "application/vnd.docker.distribution.manifest.v2+json",
+      mediaType,
       size: totalSize,
       config: manifest.config || null,
       layers: layers.map(
@@ -306,6 +554,7 @@ export async function getDetailedManifest(
         }),
       ),
       tags: matchingTags,
+      isMultiArch: false,
     };
   } catch (error) {
     console.error("[getDetailedManifest] Error:", error);
@@ -386,6 +635,12 @@ async function groupTagsByDigest(
           digest: manifest.digest,
           tags: [tag],
           size: manifest.size,
+          isMultiArch: manifest.isMultiArch,
+          platforms: manifest.platforms,
+          architecture: manifest.architecture,
+          os: manifest.os,
+          layerCount: manifest.layerCount,
+          mediaType: manifest.mediaType,
         });
       }
     }
