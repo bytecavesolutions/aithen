@@ -2,19 +2,19 @@
 
 import { createContext, useContext, useEffect, useState } from "react";
 
-type Theme = "light" | "dark" | "liquid" | "system";
+type Theme = "light" | "dark" | "system";
 
 interface ThemeContextType {
   theme: Theme;
   setTheme: (theme: Theme) => void;
-  resolvedTheme: "light" | "dark" | "liquid";
+  resolvedTheme: "light" | "dark";
 }
 
 const ThemeContext = createContext<ThemeContextType | undefined>(undefined);
 
 export function ThemeProvider({ children }: { children: React.ReactNode }) {
   const [theme, setTheme] = useState<Theme>("system");
-  const [resolvedTheme, setResolvedTheme] = useState<"light" | "dark" | "liquid">("light");
+  const [resolvedTheme, setResolvedTheme] = useState<"light" | "dark">("light");
 
   useEffect(() => {
     // Load theme from localStorage
@@ -26,9 +26,9 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     const root = window.document.documentElement;
-    root.classList.remove("light", "dark", "liquid");
+    root.classList.remove("light", "dark");
 
-    let resolved: "light" | "dark" | "liquid";
+    let resolved: "light" | "dark";
 
     if (theme === "system") {
       const systemTheme = window.matchMedia("(prefers-color-scheme: dark)")
@@ -56,7 +56,7 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
       const systemTheme = mediaQuery.matches ? "dark" : "light";
       setResolvedTheme(systemTheme);
       const root = window.document.documentElement;
-      root.classList.remove("light", "dark", "liquid");
+      root.classList.remove("light", "dark");
       root.classList.add(systemTheme);
     };
 

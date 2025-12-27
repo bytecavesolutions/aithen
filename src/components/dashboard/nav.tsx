@@ -79,7 +79,7 @@ export function DashboardNav({ user }: DashboardNavProps) {
 
   return (
     <>
-      <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur-xl supports-backdrop-filter:bg-background/60 liquid:bg-background/70 liquid:backdrop-blur-2xl liquid:border-border/50">
+      <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-backdrop-filter:bg-background/60">
         <div className="container mx-auto flex h-16 items-center justify-between px-4">
           <div className="flex items-center gap-6">
             <Link href="/dashboard" className="flex items-center gap-2">
@@ -95,7 +95,6 @@ export function DashboardNav({ user }: DashboardNavProps) {
                     className={cn(
                       "gap-2",
                       pathname === item.href && "bg-secondary",
-                      "liquid:hover:bg-accent/20 liquid:transition-all liquid:duration-300",
                     )}
                   >
                     <item.icon className="h-4 w-4" />
@@ -162,23 +161,20 @@ export function DashboardNav({ user }: DashboardNavProps) {
       </header>
 
       {/* Mobile Bottom Navigation */}
-      <nav className="fixed bottom-4 left-4 right-4 z-50 md:hidden border border-border/50 bg-background/95 backdrop-blur-xl supports-backdrop-filter:bg-background/60 rounded-2xl shadow-lg liquid:bg-card/90 liquid:backdrop-blur-2xl liquid:border-border/30 liquid:rounded-3xl liquid:shadow-xl liquid:shadow-primary/5">
+      <nav className="fixed bottom-0 left-0 right-0 z-50 md:hidden border-t bg-background/95 backdrop-blur supports-backdrop-filter:bg-background/60">
         <div className="flex items-center justify-around h-16 px-2">
           {filteredNavItems.map((item) => (
             <Link
               key={item.href}
               href={item.href}
               className={cn(
-                "flex flex-col items-center justify-center gap-1 flex-1 h-full transition-all duration-300 rounded-xl",
+                "flex flex-col items-center justify-center gap-1 flex-1 h-full transition-colors",
                 pathname === item.href
-                  ? "text-primary liquid:bg-primary/10"
-                  : "text-muted-foreground hover:text-foreground liquid:hover:bg-accent/10",
+                  ? "text-primary"
+                  : "text-muted-foreground hover:text-foreground",
               )}
             >
-              <item.icon className={cn(
-                "h-5 w-5 transition-transform duration-300",
-                pathname === item.href && "liquid:scale-110"
-              )} />
+              <item.icon className="h-5 w-5" />
               <span className="text-xs font-medium">{item.label}</span>
             </Link>
           ))}
