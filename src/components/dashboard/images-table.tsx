@@ -92,6 +92,12 @@ export function ImagesTable({
     digest: string;
     tags: string[];
   }>({ open: false, repository: "", digest: "", tags: [] });
+  const [deleteRepoDialog, setDeleteRepoDialog] = useState<{
+    open: boolean;
+    repository: string;
+    imageCount: number;
+    tagCount: number;
+  }>({ open: false, repository: "", imageCount: 0, tagCount: 0 });
   const [isDeleting, setIsDeleting] = useState(false);
 
   const toggleNamespace = (namespace: string) => {
@@ -166,6 +172,57 @@ export function ImagesTable({
     }
   };
 
+  const handleDeleteRepository = async () => {
+    setIsDeleting(true);
+    try {
+      console.log(
+        `[ImagesTable] Deleting all images in repository ${deleteRepoDialog.repository}`,
+      );
+      const response = await fetch("/api/registry/images/delete", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          repository: deleteRepoDialog.repository,
+          deleteAll: true,
+        }),
+      });
+
+      if (response.ok) {
+        console.log(`[ImagesTable] Delete repository successful, reloading page`);
+        // Refresh the page to show updated data
+        window.location.reload();
+      } else {
+        let errorMessage = `Failed to delete repository (HTTP ${response.status})`;
+        try {
+          const errorText = await response.text();
+          console.error(
+            `[ImagesTable] Delete repository failed - Status: ${response.status}, Response:`,
+            errorText,
+          );
+          if (errorText) {
+            try {
+              const errorJson = JSON.parse(errorText);
+              errorMessage = errorJson.error || errorMessage;
+            } catch {
+              errorMessage = errorText || errorMessage;
+            }
+          }
+        } catch (e) {
+          console.error(`[ImagesTable] Could not read error response:`, e);
+        }
+        alert(errorMessage);
+      }
+    } catch (error) {
+      console.error(`[ImagesTable] Delete repository error:`, error);
+      alert(
+        `Failed to delete repository: ${error instanceof Error ? error.message : String(error)}`,
+      );
+    } finally {
+      setIsDeleting(false);
+      setDeleteRepoDialog({ open: false, repository: "", imageCount: 0, tagCount: 0 });
+    }
+  };
+
   const renderImageRow = (
     repo: UserRepository,
     image: ImageDetails,
@@ -230,12 +287,12 @@ export function ImagesTable({
 
     return (
       <div key={repo.fullName} className="border-b last:border-b-0">
-        <button
-          type="button"
-          className="flex w-full items-center justify-between pl-8 pr-4 py-3.5 hover:bg-muted/50 transition-colors"
-          onClick={() => toggleRepo(repo.fullName)}
-        >
-          <div className="flex items-center gap-3">
+        <div className="flex w-full items-center justify-between pl-8 pr-4 py-3.5 hover:bg-muted/50 transition-colors group/repo">
+          <button
+            type="button"
+            className="flex items-center gap-3 flex-1 text-left"
+            onClick={() => toggleRepo(repo.fullName)}
+          >
             {isExpanded ? (
               <ChevronDown className="h-4 w-4" />
             ) : (
@@ -251,15 +308,31 @@ export function ImagesTable({
               <Tag className="h-3 w-3" />
               {repo.tagCount} {repo.tagCount === 1 ? "tag" : "tags"}
             </Badge>
+          </button>
+          <div className="flex items-center gap-2">
+            <Button
+              variant="ghost"
+              size="icon-sm"
+              className="text-destructive opacity-0 group-hover/repo:opacity-100 hover:text-destructive"
+              onClick={() => {
+                setDeleteRepoDialog({
+                  open: true,
+                  repository: repo.fullName,
+                  imageCount: repo.imageCount,
+                  tagCount: repo.tagCount,
+                });
+              }}
+            >
+              <Trash2 className="h-4 w-4" />
+            </Button>
+            <Link
+              href={`/dashboard/repositories/${repo.namespace}/${repo.name}`}
+              className="text-muted-foreground hover:text-foreground"
+            >
+              <ExternalLink className="h-4 w-4" />
+            </Link>
           </div>
-          <Link
-            href={`/dashboard/repositories/${repo.namespace}/${repo.name}`}
-            className="text-muted-foreground hover:text-foreground"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <ExternalLink className="h-4 w-4" />
-          </Link>
-        </button>
+        </div>
 
         {isExpanded && repo.images && (
           <div className="border-t bg-muted/30">
@@ -383,28 +456,28 @@ export function ImagesTable({
           <DialogContent>
             <DialogHeader>
               <DialogTitle>Delete Image</DialogTitle>
-              <DialogDescription className="space-y-2">
-                <div>
-                  Are you sure you want to delete image{" "}
-                  <code className="rounded bg-muted px-1">
-                    {truncateDigest(deleteDialog.digest)}
-                  </code>{" "}
-                  from{" "}
-                  <code className="rounded bg-muted px-1">
-                    {deleteDialog.repository}
-                  </code>
-                  ?
-                </div>
-                {deleteDialog.tags.length > 0 && (
-                  <div className="text-destructive">
-                    This will remove {deleteDialog.tags.length} tag
-                    {deleteDialog.tags.length > 1 ? "s" : ""}:{" "}
-                    {deleteDialog.tags.join(", ")}
-                  </div>
-                )}
-                <div className="font-medium">This action cannot be undone.</div>
+              <DialogDescription>
+                Are you sure you want to delete image{" "}
+                <code className="rounded bg-muted px-1">
+                  {truncateDigest(deleteDialog.digest)}
+                </code>{" "}
+                from{" "}
+                <code className="rounded bg-muted px-1">
+                  {deleteDialog.repository}
+                </code>
+                ?
               </DialogDescription>
             </DialogHeader>
+            <div className="space-y-2">
+              {deleteDialog.tags.length > 0 && (
+                <p className="text-destructive text-sm">
+                  This will remove {deleteDialog.tags.length} tag
+                  {deleteDialog.tags.length > 1 ? "s" : ""}:{" "}
+                  {deleteDialog.tags.join(", ")}
+                </p>
+              )}
+              <p className="font-medium text-sm">This action cannot be undone.</p>
+            </div>
             <DialogFooter>
               <Button
                 variant="outline"
@@ -425,6 +498,56 @@ export function ImagesTable({
                 disabled={isDeleting}
               >
                 {isDeleting ? "Deleting..." : "Delete Image"}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
+        <Dialog
+          open={deleteRepoDialog.open}
+          onOpenChange={(open) => setDeleteRepoDialog({ ...deleteRepoDialog, open })}
+        >
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Delete All Images</DialogTitle>
+              <DialogDescription>
+                Are you sure you want to delete all images in{" "}
+                <code className="rounded bg-muted px-1">
+                  {deleteRepoDialog.repository}
+                </code>
+                ?
+              </DialogDescription>
+            </DialogHeader>
+            <div className="space-y-3">
+              <div className="text-destructive font-medium text-sm">
+                This will permanently delete:
+                <ul className="list-disc list-inside mt-2">
+                  <li>{deleteRepoDialog.imageCount} {deleteRepoDialog.imageCount === 1 ? "image" : "images"}</li>
+                  <li>{deleteRepoDialog.tagCount} {deleteRepoDialog.tagCount === 1 ? "tag" : "tags"}</li>
+                </ul>
+              </div>
+              <p className="font-medium text-sm">This action cannot be undone.</p>
+            </div>
+            <DialogFooter>
+              <Button
+                variant="outline"
+                onClick={() =>
+                  setDeleteRepoDialog({
+                    open: false,
+                    repository: "",
+                    imageCount: 0,
+                    tagCount: 0,
+                  })
+                }
+              >
+                Cancel
+              </Button>
+              <Button
+                variant="destructive"
+                onClick={handleDeleteRepository}
+                disabled={isDeleting}
+              >
+                {isDeleting ? "Deleting..." : "Delete All Images"}
               </Button>
             </DialogFooter>
           </DialogContent>
@@ -473,28 +596,28 @@ export function ImagesTable({
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Delete Image</DialogTitle>
-            <DialogDescription className="space-y-2">
-              <div>
-                Are you sure you want to delete image{" "}
-                <code className="rounded bg-muted px-1">
-                  {truncateDigest(deleteDialog.digest)}
-                </code>{" "}
-                from{" "}
-                <code className="rounded bg-muted px-1">
-                  {deleteDialog.repository}
-                </code>
-                ?
-              </div>
-              {deleteDialog.tags.length > 0 && (
-                <div className="text-destructive">
-                  This will remove {deleteDialog.tags.length} tag
-                  {deleteDialog.tags.length > 1 ? "s" : ""}:{" "}
-                  {deleteDialog.tags.join(", ")}
-                </div>
-              )}
-              <div className="font-medium">This action cannot be undone.</div>
+            <DialogDescription>
+              Are you sure you want to delete image{" "}
+              <code className="rounded bg-muted px-1">
+                {truncateDigest(deleteDialog.digest)}
+              </code>{" "}
+              from{" "}
+              <code className="rounded bg-muted px-1">
+                {deleteDialog.repository}
+              </code>
+              ?
             </DialogDescription>
           </DialogHeader>
+          <div className="space-y-2">
+            {deleteDialog.tags.length > 0 && (
+              <p className="text-destructive text-sm">
+                This will remove {deleteDialog.tags.length} tag
+                {deleteDialog.tags.length > 1 ? "s" : ""}:{" "}
+                {deleteDialog.tags.join(", ")}
+              </p>
+            )}
+            <p className="font-medium text-sm">This action cannot be undone.</p>
+          </div>
           <DialogFooter>
             <Button
               variant="outline"
@@ -515,6 +638,56 @@ export function ImagesTable({
               disabled={isDeleting}
             >
               {isDeleting ? "Deleting..." : "Delete Image"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog
+        open={deleteRepoDialog.open}
+        onOpenChange={(open) => setDeleteRepoDialog({ ...deleteRepoDialog, open })}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Delete All Images</DialogTitle>
+            <DialogDescription>
+              Are you sure you want to delete all images in{" "}
+              <code className="rounded bg-muted px-1">
+                {deleteRepoDialog.repository}
+              </code>
+              ?
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-3">
+            <div className="text-destructive font-medium text-sm">
+              This will permanently delete:
+              <ul className="list-disc list-inside mt-2">
+                <li>{deleteRepoDialog.imageCount} {deleteRepoDialog.imageCount === 1 ? "image" : "images"}</li>
+                <li>{deleteRepoDialog.tagCount} {deleteRepoDialog.tagCount === 1 ? "tag" : "tags"}</li>
+              </ul>
+            </div>
+            <p className="font-medium text-sm">This action cannot be undone.</p>
+          </div>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() =>
+                setDeleteRepoDialog({
+                  open: false,
+                  repository: "",
+                  imageCount: 0,
+                  tagCount: 0,
+                })
+              }
+            >
+              Cancel
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={handleDeleteRepository}
+              disabled={isDeleting}
+            >
+              {isDeleting ? "Deleting..." : "Delete All Images"}
             </Button>
           </DialogFooter>
         </DialogContent>

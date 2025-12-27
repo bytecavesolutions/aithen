@@ -9,9 +9,10 @@ const deleteImageSchema = z
     repository: z.string().min(1, "Repository is required"),
     tag: z.string().optional(),
     digest: z.string().optional(),
+    deleteAll: z.boolean().optional(),
   })
-  .refine((data) => data.tag || data.digest, {
-    message: "Either tag or digest is required",
+  .refine((data) => data.tag || data.digest || data.deleteAll, {
+    message: "Either tag, digest, or deleteAll is required",
   });
 
 /**
@@ -35,10 +36,10 @@ export async function POST(request: Request) {
       );
     }
 
-    const { repository, tag, digest } = result.data;
+    const { repository, tag, digest, deleteAll } = result.data;
 
     console.log(
-      `[DELETE /api/registry/images/delete] Request to delete ${repository} tag=${tag} digest=${digest}`,
+      `[DELETE /api/registry/images/delete] Request to delete ${repository} tag=${tag} digest=${digest} deleteAll=${deleteAll}`,
     );
     console.log(
       `[DELETE /api/registry/images/delete] User: ${user.username}, Role: ${user.role}`,
@@ -53,6 +54,101 @@ export async function POST(request: Request) {
         { error: "Access denied to this repository" },
         { status: 403 },
       );
+    }
+
+    // Handle deleteAll - delete all images in the repository
+    if (deleteAll) {
+      console.log(
+        `[DELETE /api/registry/images/delete] Deleting all images in repository: ${repository}`,
+      );
+      
+      // Get all tags for the repository
+      const { getRepositoryTags } = await import("@/lib/registry");
+      const tags = await getRepositoryTags(repository);
+
+      if (tags.length === 0) {
+        console.log(
+          `[DELETE /api/registry/images/delete] No images found in ${repository}`,
+        );
+        return NextResponse.json({
+          success: true,
+          message: `No images found in ${repository}`,
+        });
+      }
+
+      console.log(
+        `[DELETE /api/registry/images/delete] Found ${tags.length} tags to delete`,
+      );
+
+      // Get unique digests for all tags
+      const digestSet = new Set<string>();
+      for (const tagName of tags) {
+        try {
+          const manifest = await getImageManifest(repository, tagName);
+          if (manifest?.digest) {
+            digestSet.add(manifest.digest);
+          }
+        } catch (error) {
+          console.error(
+            `[DELETE /api/registry/images/delete] Error getting manifest for ${repository}:${tagName}:`,
+            error,
+          );
+          // Continue with other tags
+        }
+      }
+
+      const digests = Array.from(digestSet);
+      console.log(
+        `[DELETE /api/registry/images/delete] Found ${digests.length} unique digests to delete`,
+      );
+
+      // Delete all digests
+      let successCount = 0;
+      let failedCount = 0;
+
+      for (const digestToDelete of digests) {
+        try {
+          const success = await deleteImage(repository, digestToDelete);
+          if (success) {
+            successCount++;
+            console.log(
+              `[DELETE /api/registry/images/delete] Successfully deleted ${repository}@${digestToDelete.substring(0, 19)}... (${successCount}/${digests.length})`,
+            );
+          } else {
+            failedCount++;
+            console.error(
+              `[DELETE /api/registry/images/delete] Failed to delete ${repository}@${digestToDelete.substring(0, 19)}...`,
+            );
+          }
+        } catch (error) {
+          failedCount++;
+          console.error(
+            `[DELETE /api/registry/images/delete] Error deleting ${repository}@${digestToDelete}:`,
+            error,
+          );
+        }
+      }
+
+      if (failedCount > 0) {
+        console.error(
+          `[DELETE /api/registry/images/delete] Completed with ${failedCount} failures out of ${digests.length} images`,
+        );
+        return NextResponse.json(
+          {
+            success: false,
+            error: `Deleted ${successCount} images, but ${failedCount} failed`,
+          },
+          { status: 500 },
+        );
+      }
+
+      console.log(
+        `[DELETE /api/registry/images/delete] Successfully deleted all ${successCount} images from ${repository}`,
+      );
+      return NextResponse.json({
+        success: true,
+        message: `Successfully deleted all ${successCount} images from ${repository}`,
+      });
     }
 
     // If digest is provided directly, use it
