@@ -172,7 +172,7 @@ export function ImagesTable({
     isNested = false,
   ) => (
     <TableRow key={`${repo.fullName}-${image.digest}`} className="group">
-      <TableCell className={isNested ? "pl-12" : ""}>
+      <TableCell className={isNested ? "pl-16" : ""}>
         <div className="flex items-center gap-2">
           <Hash className="h-3.5 w-3.5 text-muted-foreground" />
           <Link
@@ -232,7 +232,7 @@ export function ImagesTable({
       <div key={repo.fullName} className="border-b last:border-b-0">
         <button
           type="button"
-          className="flex w-full items-center justify-between px-4 py-3 hover:bg-muted/50 transition-colors"
+          className="flex w-full items-center justify-between pl-8 pr-4 py-3.5 hover:bg-muted/50 transition-colors"
           onClick={() => toggleRepo(repo.fullName)}
         >
           <div className="flex items-center gap-3">
@@ -262,11 +262,11 @@ export function ImagesTable({
         </button>
 
         {isExpanded && repo.images && (
-          <div className="border-t bg-muted/20">
+          <div className="border-t bg-muted/30">
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead className="pl-12">Digest</TableHead>
+                  <TableHead className="pl-16">Digest</TableHead>
                   <TableHead>Tags</TableHead>
                   <TableHead className="text-right">Size</TableHead>
                   <TableHead className="text-right w-20">Actions</TableHead>
@@ -327,10 +327,10 @@ export function ImagesTable({
                 const totalTags = repos.reduce((sum, r) => sum + r.tagCount, 0);
 
                 return (
-                  <div key={namespace}>
+                  <div key={namespace} className="py-1">
                     <button
                       type="button"
-                      className="flex w-full items-center justify-between p-4 hover:bg-muted/50 transition-colors"
+                      className="flex w-full items-center justify-between p-4 hover:bg-muted/50 transition-colors font-semibold"
                       onClick={() => toggleNamespace(namespace)}
                     >
                       <div className="flex items-center gap-3">
@@ -365,7 +365,7 @@ export function ImagesTable({
                     </button>
 
                     {isExpanded && (
-                      <div className="border-t bg-muted/10">
+                      <div className="border-t bg-muted/10 pb-2">
                         {repos.map((repo) => renderRepositorySection(repo))}
                       </div>
                     )}

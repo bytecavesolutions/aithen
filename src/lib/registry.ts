@@ -434,10 +434,6 @@ export async function getAllRepositoriesGrouped(): Promise<
     const parts = repo.split("/");
     const namespace = parts[0];
 
-    if (!grouped.has(namespace)) {
-      grouped.set(namespace, []);
-    }
-
     const tags = await getRepositoryTags(repo);
 
     // Skip repositories with no tags (empty/deleted repositories)
@@ -446,6 +442,10 @@ export async function getAllRepositoriesGrouped(): Promise<
         `[getAllRepositoriesGrouped] Skipping empty repository: ${repo}`,
       );
       continue;
+    }
+
+    if (!grouped.has(namespace)) {
+      grouped.set(namespace, []);
     }
 
     const images = await groupTagsByDigest(repo, tags);
@@ -467,6 +467,16 @@ export async function getAllRepositoriesGrouped(): Promise<
       images,
       isOrphan,
     });
+  }
+
+  // Filter out namespaces with no repositories
+  for (const [namespace, repos] of grouped.entries()) {
+    if (repos.length === 0) {
+      console.log(
+        `[getAllRepositoriesGrouped] Removing empty namespace: ${namespace}`,
+      );
+      grouped.delete(namespace);
+    }
   }
 
   return grouped;
