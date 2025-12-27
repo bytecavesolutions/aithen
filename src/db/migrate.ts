@@ -23,11 +23,11 @@ export async function runMigrations(silent = false): Promise<void> {
   }
 
   const db = new Database(dbPath, { create: true });
-  db.exec("PRAGMA journal_mode = WAL;");
-  db.exec("PRAGMA foreign_keys = ON;");
+  db.run("PRAGMA journal_mode = WAL;");
+  db.run("PRAGMA foreign_keys = ON;");
 
   // Create users table
-  db.exec(`
+  db.run(`
     CREATE TABLE IF NOT EXISTS users (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       username TEXT NOT NULL UNIQUE,
@@ -40,7 +40,7 @@ export async function runMigrations(silent = false): Promise<void> {
   `);
 
   // Create sessions table
-  db.exec(`
+  db.run(`
     CREATE TABLE IF NOT EXISTS sessions (
       id TEXT PRIMARY KEY,
       user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
@@ -50,7 +50,7 @@ export async function runMigrations(silent = false): Promise<void> {
   `);
 
   // Create passkey_verifications table
-  db.exec(`
+  db.run(`
     CREATE TABLE IF NOT EXISTS passkey_verifications (
       id TEXT PRIMARY KEY NOT NULL,
       user_id INTEGER NOT NULL,
@@ -62,7 +62,7 @@ export async function runMigrations(silent = false): Promise<void> {
   `);
 
   // Create passkeys table
-  db.exec(`
+  db.run(`
     CREATE TABLE IF NOT EXISTS passkeys (
       id TEXT PRIMARY KEY NOT NULL,
       user_id INTEGER NOT NULL,
@@ -78,7 +78,7 @@ export async function runMigrations(silent = false): Promise<void> {
   `);
 
   // Create access_tokens table
-  db.exec(`
+  db.run(`
     CREATE TABLE IF NOT EXISTS access_tokens (
       id TEXT PRIMARY KEY NOT NULL,
       user_id INTEGER NOT NULL,
@@ -93,7 +93,7 @@ export async function runMigrations(silent = false): Promise<void> {
   `);
 
   // Create namespaces table
-  db.exec(`
+  db.run(`
     CREATE TABLE IF NOT EXISTS namespaces (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       name TEXT NOT NULL UNIQUE,
@@ -107,7 +107,7 @@ export async function runMigrations(silent = false): Promise<void> {
   `);
 
   // Create indexes for better performance
-  db.exec(`
+  db.run(`
     CREATE INDEX IF NOT EXISTS idx_users_username ON users(username);
     CREATE INDEX IF NOT EXISTS idx_users_email ON users(email);
     CREATE INDEX IF NOT EXISTS idx_sessions_user_id ON sessions(user_id);
