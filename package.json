@@ -4,8 +4,9 @@
   "private": true,
   "scripts": {
     "dev": "bun --bun next dev",
-    "build": "bun --bun next build",
+    "build": "bun --bun next build --webpack && bun run scripts/post-build.ts",
     "start": "bun --bun next start",
+    "start:standalone": "bun --bun .next/standalone/server.js",
     "lint": "biome check",
     "lint:fix": "biome check --write",
     "lint:fix:unsafe": "biome check --write --unsafe",

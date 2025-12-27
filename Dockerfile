@@ -1,5 +1,5 @@
 # Stage 1: Dependencies
-FROM oven/bun:1 AS deps
+FROM oven/bun:1-alpine AS deps
 WORKDIR /app
 
 # Copy package files
@@ -9,7 +9,7 @@ COPY package.json bun.lock ./
 RUN bun install --frozen-lockfile
 
 # Stage 2: Builder
-FROM oven/bun:1 AS builder
+FROM oven/bun:1-alpine AS builder
 WORKDIR /app
 
 # Copy dependencies from deps stage
@@ -22,29 +22,31 @@ COPY . .
 ENV NEXT_TELEMETRY_DISABLED=1
 ENV NODE_ENV=production
 
-# Build the application
+# Build the application with webpack and copy static files
 RUN bun run build
 
 # Stage 3: Runner
-FROM oven/bun:1
+FROM oven/bun:1-alpine
 WORKDIR /app
 
 ENV NODE_ENV=production
 ENV NEXT_TELEMETRY_DISABLED=1
 
-# Copy dependencies and build artifacts from builder
-COPY --from=builder /app/node_modules ./node_modules
-COPY --from=builder /app/.next ./.next
+# Copy standalone server and dependencies
+COPY --from=builder /app/.next/standalone ./
+COPY --from=builder /app/.next/static ./.next/static
 COPY --from=builder /app/public ./public
-COPY --from=builder /app/package.json ./package.json
-COPY --from=builder /app/next.config.ts ./next.config.ts
 
-# Create data and certs directories
-RUN mkdir -p ./data ./certs
+# Create data and certs directories with proper permissions
+RUN mkdir -p ./data ./certs && \
+    chown -R bun:bun ./data ./certs
+
+# Use non-root user
+USER bun
 
 EXPOSE 3000
 
 ENV PORT=3000
 ENV HOSTNAME="0.0.0.0"
 
-CMD ["bun", "--bun", "next", "start"]
+CMD ["bun", "--bun", "server.js"]
