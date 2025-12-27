@@ -26,7 +26,11 @@ export async function GET(request: Request) {
   const url = new URL(request.url);
 
   // Parse query parameters
-  const service = url.searchParams.get("service");
+  // Use default service name if not provided for compatibility with various Docker clients
+  const service =
+    url.searchParams.get("service") ||
+    process.env.REGISTRY_SERVICE_NAME ||
+    "aithen-registry";
   const scope = url.searchParams.getAll("scope");
   const _clientId = url.searchParams.get("client_id");
   const offlineToken = url.searchParams.get("offline_token") === "true";
@@ -34,18 +38,6 @@ export async function GET(request: Request) {
 
   // Extract credentials from Authorization header
   const authHeader = request.headers.get("Authorization");
-
-  // Validate required parameters
-  if (!service) {
-    return NextResponse.json(
-      {
-        errors: [
-          { code: "INVALID_REQUEST", message: "Missing service parameter" },
-        ],
-      },
-      { status: 400 },
-    );
-  }
 
   let username: string | null = null;
   let password: string | null = null;
@@ -225,7 +217,10 @@ export async function POST(request: Request) {
     const grantType = formData.get("grant_type");
     const refreshToken = formData.get("refresh_token");
     const scope = formData.getAll("scope") as string[];
-    const _service = formData.get("service") as string;
+    const service =
+      (formData.get("service") as string) ||
+      process.env.REGISTRY_SERVICE_NAME ||
+      "aithen-registry";
     const _clientId = formData.get("client_id");
 
     if (grantType === "refresh_token" && refreshToken) {
