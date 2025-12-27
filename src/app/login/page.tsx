@@ -30,8 +30,6 @@ export default function LoginPage() {
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [isPasskeyLoading, setIsPasskeyLoading] = useState(false);
-  const [hasPasskey, setHasPasskey] = useState(false);
-  const [checkingPasskey, setCheckingPasskey] = useState(false);
   const [showPasswordForm, setShowPasswordForm] = useState(false);
   const [hasAutoTriggered, setHasAutoTriggered] = useState(false);
   const [isAutoTrigger, setIsAutoTrigger] = useState(false);
@@ -44,8 +42,6 @@ export default function LoginPage() {
       password: "",
     },
   });
-
-  const username = form.watch("username");
 
   const handlePasskeyLogin = useCallback(async () => {
     if (isPasskeyLoading) {
@@ -167,43 +163,6 @@ export default function LoginPage() {
     autoTriggerPasskey();
   }, [handlePasskeyLogin, hasAutoTriggered, isPasskeyLoading]);
 
-  // Check if user has passkey when username is entered
-  useEffect(() => {
-    const checkPasskey = async () => {
-      if (!username || username.length < 2) {
-        setHasPasskey(false);
-        return;
-      }
-
-      setCheckingPasskey(true);
-      try {
-        const response = await fetch("/api/auth/passkey/check", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ username }),
-        });
-
-        const data = await response.json();
-        console.log("Passkey check result:", data);
-        setHasPasskey(data.hasPasskey);
-
-        // Auto-trigger passkey if available (only on first detection)
-        if (data.hasPasskey && !showPasswordForm && !isPasskeyLoading) {
-          console.log("Auto-triggering passkey login...");
-          setTimeout(() => handlePasskeyLogin(), 500);
-        }
-      } catch (err) {
-        console.error("Passkey check failed:", err);
-        setHasPasskey(false);
-      } finally {
-        setCheckingPasskey(false);
-      }
-    };
-
-    const timer = setTimeout(checkPasskey, 300);
-    return () => clearTimeout(timer);
-  }, [username, handlePasskeyLogin, isPasskeyLoading, showPasswordForm]);
-
   async function onSubmit(data: LoginInput) {
     setIsLoading(true);
     setError(null);
@@ -301,17 +260,6 @@ export default function LoginPage() {
                       />
                     </FormControl>
                     <FormMessage />
-                    {checkingPasskey && (
-                      <p className="text-xs text-muted-foreground">
-                        Checking for passkey...
-                      </p>
-                    )}
-                    {hasPasskey && !showPasswordForm && (
-                      <div className="flex items-center gap-2 text-xs text-green-600 dark:text-green-400">
-                        <Fingerprint className="h-3 w-3" />
-                        <span>Passkey detected for this account</span>
-                      </div>
-                    )}
                   </FormItem>
                 )}
               />
