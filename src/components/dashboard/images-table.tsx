@@ -271,12 +271,12 @@ export function ImagesTable({
     isNested = false,
   ) => (
     <TableRow key={`${repo.fullName}-${image.digest}`} className="group">
-      <TableCell className={isNested ? "pl-16" : ""}>
+      <TableCell className={isNested ? "pl-8 sm:pl-16" : ""}>
         <div className="flex items-center gap-2">
-          <Hash className="h-3.5 w-3.5 text-muted-foreground" />
+          <Hash className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
           <Link
             href={`/dashboard/repositories/${repo.namespace}/${repo.name}/images/${encodeURIComponent(image.digest)}`}
-            className="font-mono text-sm hover:underline"
+            className="font-mono text-xs sm:text-sm hover:underline"
           >
             {truncateDigest(image.digest)}
           </Link>
@@ -284,20 +284,20 @@ export function ImagesTable({
       </TableCell>
       <TableCell>
         <div className="flex flex-wrap gap-1">
-          {image.tags.slice(0, 4).map((tag) => (
+          {image.tags.slice(0, 2).map((tag) => (
             <Badge key={tag} variant="secondary" className="font-mono text-xs">
               <Tag className="mr-1 h-3 w-3" />
               {tag}
             </Badge>
           ))}
-          {image.tags.length > 4 && (
+          {image.tags.length > 2 && (
             <Badge variant="outline" className="text-xs">
-              +{image.tags.length - 4} more
+              +{image.tags.length - 2}
             </Badge>
           )}
         </div>
       </TableCell>
-      <TableCell>
+      <TableCell className="hidden sm:table-cell">
         <div className="flex flex-wrap gap-1">
           {image.isMultiArch && image.platforms ? (
             <>
@@ -342,7 +342,7 @@ export function ImagesTable({
           )}
         </div>
       </TableCell>
-      <TableCell>
+      <TableCell className="hidden md:table-cell">
         {image.layerCount !== undefined && image.layerCount > 0 ? (
           <div className="flex items-center gap-1 text-sm text-muted-foreground">
             <Layers className="h-3.5 w-3.5" />
@@ -352,7 +352,7 @@ export function ImagesTable({
           <span className="text-xs text-muted-foreground">—</span>
         )}
       </TableCell>
-      <TableCell className="text-right font-mono text-sm">
+      <TableCell className="text-right font-mono text-xs sm:text-sm">
         {formatBytes(image.size)}
       </TableCell>
       <TableCell className="text-right">
@@ -384,29 +384,35 @@ export function ImagesTable({
 
     return (
       <div key={repo.fullName} className="border-b last:border-b-0">
-        <div className="flex w-full items-center justify-between pl-8 pr-4 py-3.5 hover:bg-muted/50 transition-colors group/repo">
+        <div className="flex flex-col sm:flex-row w-full sm:items-center justify-between gap-2 sm:gap-0 pl-4 sm:pl-8 pr-4 py-3.5 hover:bg-muted/50 transition-colors group/repo">
           <button
             type="button"
-            className="flex items-center gap-3 flex-1 text-left"
+            className="flex items-start sm:items-center gap-2 sm:gap-3 flex-1 text-left min-w-0"
             onClick={() => toggleRepo(repo.fullName)}
           >
-            {isExpanded ? (
-              <ChevronDown className="h-4 w-4" />
-            ) : (
-              <ChevronRight className="h-4 w-4" />
-            )}
-            <Container className="h-4 w-4 text-muted-foreground" />
-            <span className="font-medium font-mono">{displayName}</span>
-            <Badge variant="secondary" className="gap-1">
-              <Hash className="h-3 w-3" />
-              {repo.imageCount} {repo.imageCount === 1 ? "image" : "images"}
-            </Badge>
-            <Badge variant="outline" className="gap-1">
-              <Tag className="h-3 w-3" />
-              {repo.tagCount} {repo.tagCount === 1 ? "tag" : "tags"}
-            </Badge>
+            <div className="flex items-center gap-2 sm:gap-3 shrink-0">
+              {isExpanded ? (
+                <ChevronDown className="h-4 w-4" />
+              ) : (
+                <ChevronRight className="h-4 w-4" />
+              )}
+              <Container className="h-4 w-4 text-muted-foreground" />
+            </div>
+            <div className="flex flex-col sm:flex-row sm:items-center gap-1.5 sm:gap-3 min-w-0 flex-1">
+              <span className="font-medium font-mono text-sm sm:text-base truncate">{displayName}</span>
+              <div className="flex flex-wrap items-center gap-1.5">
+                <Badge variant="secondary" className="gap-1 text-xs">
+                  <Hash className="h-3 w-3" />
+                  {repo.imageCount} {repo.imageCount === 1 ? "image" : "images"}
+                </Badge>
+                <Badge variant="outline" className="gap-1 text-xs">
+                  <Tag className="h-3 w-3" />
+                  {repo.tagCount} {repo.tagCount === 1 ? "tag" : "tags"}
+                </Badge>
+              </div>
+            </div>
           </button>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 ml-10 sm:ml-0">
             <Button
               variant="ghost"
               size="icon-sm"
@@ -432,16 +438,16 @@ export function ImagesTable({
         </div>
 
         {isExpanded && repo.images && (
-          <div className="border-t bg-muted/30">
+          <div className="border-t bg-muted/30 overflow-x-auto">
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead className="pl-16">Digest</TableHead>
+                  <TableHead className="pl-8 sm:pl-16">Digest</TableHead>
                   <TableHead>Tags</TableHead>
-                  <TableHead>Architecture</TableHead>
-                  <TableHead>Layers</TableHead>
+                  <TableHead className="hidden sm:table-cell">Architecture</TableHead>
+                  <TableHead className="hidden md:table-cell">Layers</TableHead>
                   <TableHead className="text-right">Size</TableHead>
-                  <TableHead className="text-right w-20">Actions</TableHead>
+                  <TableHead className="text-right w-16 sm:w-20">Actions</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -461,15 +467,15 @@ export function ImagesTable({
     if (namespaces.length === 0) {
       return (
         <Card>
-          <CardHeader>
-            <CardTitle>All Repositories</CardTitle>
-            <CardDescription>Container images from all users</CardDescription>
+          <CardHeader className="px-4 sm:px-6">
+            <CardTitle className="text-base sm:text-lg">All Repositories</CardTitle>
+            <CardDescription className="text-xs sm:text-sm">Container images from all users</CardDescription>
           </CardHeader>
-          <CardContent>
+          <CardContent className="px-4 sm:px-6">
             <div className="flex flex-col items-center justify-center py-10 text-muted-foreground">
               <Container className="h-12 w-12 opacity-50" />
-              <p className="mt-4">No images in registry</p>
-              <p className="text-sm">
+              <p className="mt-4 text-sm sm:text-base">No images in registry</p>
+              <p className="text-xs sm:text-sm">
                 Users can push images to their namespace
               </p>
             </div>
@@ -481,9 +487,9 @@ export function ImagesTable({
     return (
       <>
         <Card>
-          <CardHeader>
-            <CardTitle>All Repositories</CardTitle>
-            <CardDescription>
+          <CardHeader className="px-4 sm:px-6">
+            <CardTitle className="text-base sm:text-lg">All Repositories</CardTitle>
+            <CardDescription className="text-xs sm:text-sm">
               Container images grouped by user namespace
             </CardDescription>
           </CardHeader>
@@ -502,37 +508,41 @@ export function ImagesTable({
                   <div key={namespace} className="py-1">
                     <button
                       type="button"
-                      className="flex w-full items-center justify-between p-4 hover:bg-muted/50 transition-colors font-semibold"
+                      className="flex w-full items-start sm:items-center p-3 sm:p-4 hover:bg-muted/50 transition-colors font-semibold"
                       onClick={() => toggleNamespace(namespace)}
                     >
-                      <div className="flex items-center gap-3">
-                        {isExpanded ? (
-                          <ChevronDown className="h-4 w-4" />
-                        ) : (
-                          <ChevronRight className="h-4 w-4" />
-                        )}
-                        <User className="h-4 w-4 text-muted-foreground" />
-                        <span className="font-medium font-mono">
-                          {namespace}/
-                        </span>
-                        {repos.some((r) => r.isOrphan) && (
-                          <Badge variant="destructive" className="gap-1">
-                            <AlertTriangle className="h-3 w-3" />
-                            No Namespace
+                      <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3 w-full">
+                        <div className="flex items-center gap-2 sm:gap-3 shrink-0">
+                          {isExpanded ? (
+                            <ChevronDown className="h-4 w-4" />
+                          ) : (
+                            <ChevronRight className="h-4 w-4" />
+                          )}
+                          <User className="h-4 w-4 text-muted-foreground" />
+                          <span className="font-medium font-mono text-sm sm:text-base">
+                            {namespace}/
+                          </span>
+                        </div>
+                        <div className="flex flex-wrap items-center gap-1.5 sm:gap-2 ml-8 sm:ml-0">
+                          {repos.some((r) => r.isOrphan) && (
+                            <Badge variant="destructive" className="gap-1 text-xs">
+                              <AlertTriangle className="h-3 w-3" />
+                              No Namespace
+                            </Badge>
+                          )}
+                          <Badge variant="secondary" className="text-xs">
+                            {repos.length}{" "}
+                            {repos.length === 1 ? "repository" : "repositories"}
                           </Badge>
-                        )}
-                        <Badge variant="secondary">
-                          {repos.length}{" "}
-                          {repos.length === 1 ? "repository" : "repositories"}
-                        </Badge>
-                        <Badge variant="outline" className="gap-1">
-                          <Hash className="h-3 w-3" />
-                          {totalImages} {totalImages === 1 ? "image" : "images"}
-                        </Badge>
-                        <Badge variant="outline" className="gap-1">
-                          <Tag className="h-3 w-3" />
-                          {totalTags} {totalTags === 1 ? "tag" : "tags"}
-                        </Badge>
+                          <Badge variant="outline" className="gap-1 text-xs">
+                            <Hash className="h-3 w-3" />
+                            {totalImages} {totalImages === 1 ? "image" : "images"}
+                          </Badge>
+                          <Badge variant="outline" className="gap-1 text-xs">
+                            <Tag className="h-3 w-3" />
+                            {totalTags} {totalTags === 1 ? "tag" : "tags"}
+                          </Badge>
+                        </div>
                       </div>
                     </button>
 
@@ -671,15 +681,15 @@ export function ImagesTable({
   if (repositories.length === 0) {
     return (
       <Card>
-        <CardHeader>
-          <CardTitle>Your Repositories</CardTitle>
-          <CardDescription>Container images in your namespace</CardDescription>
+        <CardHeader className="px-4 sm:px-6">
+          <CardTitle className="text-base sm:text-lg">Your Repositories</CardTitle>
+          <CardDescription className="text-xs sm:text-sm">Container images in your namespace</CardDescription>
         </CardHeader>
-        <CardContent>
+        <CardContent className="px-4 sm:px-6">
           <div className="flex flex-col items-center justify-center py-10 text-muted-foreground">
             <Container className="h-12 w-12 opacity-50" />
-            <p className="mt-4">No images yet</p>
-            <p className="text-sm">Push your first image to get started</p>
+            <p className="mt-4 text-sm sm:text-base">No images yet</p>
+            <p className="text-xs sm:text-sm">Push your first image to get started</p>
           </div>
         </CardContent>
       </Card>
@@ -689,9 +699,9 @@ export function ImagesTable({
   return (
     <>
       <Card>
-        <CardHeader>
-          <CardTitle>Your Repositories</CardTitle>
-          <CardDescription>Container images in your namespace</CardDescription>
+        <CardHeader className="px-4 sm:px-6">
+          <CardTitle className="text-base sm:text-lg">Your Repositories</CardTitle>
+          <CardDescription className="text-xs sm:text-sm">Container images in your namespace</CardDescription>
         </CardHeader>
         <CardContent className="p-0">
           <div className="divide-y">
