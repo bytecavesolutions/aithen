@@ -80,11 +80,12 @@ export function DashboardNav({ user }: DashboardNavProps) {
   return (
     <>
       <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-backdrop-filter:bg-background/60">
-        <div className="container mx-auto flex h-16 items-center justify-between px-4">
-          <div className="flex items-center gap-6">
+        <div className="container mx-auto flex h-14 sm:h-16 items-center justify-between px-3 sm:px-4">
+          <div className="flex items-center gap-4 sm:gap-6">
             <Link href="/dashboard" className="flex items-center gap-2">
-              <Container className="h-6 w-6 text-primary" />
-              <span className="font-bold text-xl">Registry Hub</span>
+              <Container className="h-5 w-5 sm:h-6 sm:w-6 text-primary" />
+              <span className="font-bold text-lg sm:text-xl hidden xs:inline">Registry Hub</span>
+              <span className="font-bold text-lg sm:text-xl xs:hidden">Registry</span>
             </Link>
             <nav className="hidden md:flex items-center gap-1">
               {filteredNavItems.map((item) => (
@@ -105,17 +106,17 @@ export function DashboardNav({ user }: DashboardNavProps) {
             </nav>
           </div>
 
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1 sm:gap-2">
             <ThemeToggle />
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button
                   variant="ghost"
-                  className="relative h-10 w-10 rounded-full"
+                  className="relative h-8 w-8 sm:h-10 sm:w-10 rounded-full"
                   suppressHydrationWarning
                 >
-                  <Avatar className="h-10 w-10">
-                    <AvatarFallback className="bg-primary/10 text-primary">
+                  <Avatar className="h-8 w-8 sm:h-10 sm:w-10">
+                    <AvatarFallback className="bg-primary/10 text-primary text-xs sm:text-sm">
                       {user.username.slice(0, 2).toUpperCase()}
                     </AvatarFallback>
                   </Avatar>
@@ -161,21 +162,21 @@ export function DashboardNav({ user }: DashboardNavProps) {
       </header>
 
       {/* Mobile Bottom Navigation */}
-      <nav className="fixed bottom-0 left-0 right-0 z-50 md:hidden border-t bg-background/95 backdrop-blur supports-backdrop-filter:bg-background/60">
-        <div className="flex items-center justify-around h-16 px-2">
+      <nav className="fixed bottom-0 left-0 right-0 z-50 md:hidden border-t bg-background/95 backdrop-blur supports-backdrop-filter:bg-background/60 safe-area-bottom">
+        <div className="flex items-center justify-around h-16 px-1 pb-safe">
           {filteredNavItems.map((item) => (
             <Link
               key={item.href}
               href={item.href}
               className={cn(
-                "flex flex-col items-center justify-center gap-1 flex-1 h-full transition-colors",
+                "flex flex-col items-center justify-center gap-0.5 flex-1 h-full min-w-0 px-1 py-2 transition-colors active:scale-95",
                 pathname === item.href
                   ? "text-primary"
                   : "text-muted-foreground hover:text-foreground",
               )}
             >
-              <item.icon className="h-5 w-5" />
-              <span className="text-xs font-medium">{item.label}</span>
+              <item.icon className="h-5 w-5 shrink-0" />
+              <span className="text-[10px] xs:text-xs font-medium truncate max-w-full">{item.label}</span>
             </Link>
           ))}
         </div>
