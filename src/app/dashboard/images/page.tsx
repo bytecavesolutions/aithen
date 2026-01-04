@@ -1,6 +1,7 @@
 import { Container, Hash, Package, RefreshCw, Tag } from "lucide-react";
 import { redirect } from "next/navigation";
 import { ImagesTable } from "@/components/dashboard/images-table";
+import { RefreshCacheButton } from "@/components/dashboard/refresh-cache-button";
 import { RegistryStatus } from "@/components/dashboard/registry-status";
 import {
   Card,
@@ -15,6 +16,11 @@ import {
   getAllRepositoriesGrouped,
   getUserRepositories,
 } from "@/lib/registry";
+import {
+  type CachedRepositories,
+  type CachedUserRepositories,
+  getCachedData,
+} from "@/lib/registry-cache";
 
 export default async function ImagesPage() {
   const user = await getCurrentUser();
@@ -30,28 +36,59 @@ export default async function ImagesPage() {
   const isHealthy = await checkRegistryHealth();
 
   let repositories: Awaited<ReturnType<typeof getUserRepositories>> = [];
-  let groupedRepositories: Map<
+  let groupedRepositories: Record<
     string,
     Awaited<ReturnType<typeof getUserRepositories>>
   > | null = null;
   let totalImages = 0;
   let totalTags = 0;
   let totalRepos = 0;
+  let namespaceCount = 0;
 
   if (isHealthy) {
     try {
       if (user.role === "admin") {
-        groupedRepositories = await getAllRepositoriesGrouped();
-        for (const repos of groupedRepositories.values()) {
-          totalImages += repos.reduce((sum, r) => sum + r.imageCount, 0);
-          totalTags += repos.reduce((sum, r) => sum + r.tagCount, 0);
-          totalRepos += repos.length;
+        // Try to get from cache first
+        const cached =
+          await getCachedData<CachedRepositories>("repositories:all");
+
+        if (cached) {
+          // Use cached data (instant load)
+          groupedRepositories = cached.groupedRepositories;
+          totalImages = cached.totalImages;
+          totalTags = cached.totalTags;
+          totalRepos = cached.totalRepos;
+          namespaceCount = cached.namespaceCount;
+        } else {
+          // Fallback to live fetch (cache miss)
+          const liveData = await getAllRepositoriesGrouped();
+          groupedRepositories = Object.fromEntries(liveData);
+          for (const repos of liveData.values()) {
+            totalImages += repos.reduce((sum, r) => sum + r.imageCount, 0);
+            totalTags += repos.reduce((sum, r) => sum + r.tagCount, 0);
+            totalRepos += repos.length;
+          }
+          namespaceCount = liveData.size;
         }
       } else {
-        repositories = await getUserRepositories(user.id);
-        totalImages = repositories.reduce((sum, r) => sum + r.imageCount, 0);
-        totalTags = repositories.reduce((sum, r) => sum + r.tagCount, 0);
-        totalRepos = repositories.length;
+        // Try to get user's namespace from cache
+        const cached = await getCachedData<CachedUserRepositories>(
+          `repositories:namespace:${user.username.toLowerCase()}`,
+        );
+
+        if (cached) {
+          // Use cached data
+          repositories = cached.repositories;
+          totalImages = cached.totalImages;
+          totalTags = cached.totalTags;
+          totalRepos = cached.totalRepos;
+        } else {
+          // Fallback to live fetch
+          repositories = await getUserRepositories(user.id);
+          totalImages = repositories.reduce((sum, r) => sum + r.imageCount, 0);
+          totalTags = repositories.reduce((sum, r) => sum + r.tagCount, 0);
+          totalRepos = repositories.length;
+        }
       }
     } catch (error) {
       console.error("Error fetching repositories:", error);
@@ -60,16 +97,19 @@ export default async function ImagesPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-bold tracking-tight">Images</h1>
-          <p className="text-muted-foreground">
+      <div className="flex items-center justify-between gap-4">
+        <div className="min-w-0 flex-1">
+          <h1 className="text-2xl sm:text-3xl font-bold tracking-tight">Images</h1>
+          <p className="text-sm text-muted-foreground truncate">
             {user.role === "admin"
-              ? "Manage all container images in the registry"
-              : `Manage your container images in the ${user.username}/ namespace`}
+              ? "Manage all container images"
+              : `Images in ${user.username}/ namespace`}
           </p>
         </div>
-        <RegistryStatus isHealthy={isHealthy} />
+        <div className="flex items-center gap-2 shrink-0">
+          {user.role === "admin" && <RefreshCacheButton />}
+          <RegistryStatus isHealthy={isHealthy} />
+        </div>
       </div>
 
       {!isHealthy ? (
@@ -112,7 +152,7 @@ export default async function ImagesPage() {
                 <div className="text-2xl font-bold">{totalRepos}</div>
                 <p className="text-xs text-muted-foreground">
                   {user.role === "admin"
-                    ? `Across ${groupedRepositories?.size || 0} namespaces`
+                    ? `Across ${namespaceCount} namespaces`
                     : `In ${user.username}/ namespace`}
                 </p>
               </CardContent>
@@ -170,7 +210,7 @@ export default async function ImagesPage() {
 
           {user.role === "admin" && groupedRepositories ? (
             <ImagesTable
-              groupedRepositories={Object.fromEntries(groupedRepositories)}
+              groupedRepositories={groupedRepositories}
               isAdmin={true}
             />
           ) : (

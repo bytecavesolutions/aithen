@@ -1,4 +1,12 @@
-import { ArrowLeft, Container, Copy, Cpu, Hash, Layers, Tag } from "lucide-react";
+import {
+  ArrowLeft,
+  Container,
+  Copy,
+  Cpu,
+  Hash,
+  Layers,
+  Tag,
+} from "lucide-react";
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { Badge } from "@/components/ui/badge";
@@ -212,7 +220,11 @@ export default async function RepositoryPage({ params }: RepositoryPageProps) {
                       {image.isMultiArch && image.platforms ? (
                         <>
                           {image.platforms
-                            .filter((p) => p.architecture !== "unknown" && p.os !== "unknown")
+                            .filter(
+                              (p) =>
+                                p.architecture !== "unknown" &&
+                                p.os !== "unknown",
+                            )
                             .slice(0, 3)
                             .map((p) => (
                               <Badge
@@ -225,13 +237,23 @@ export default async function RepositoryPage({ params }: RepositoryPageProps) {
                                 {formatPlatform(p.architecture, p.os)}
                               </Badge>
                             ))}
-                          {image.platforms.filter((p) => p.architecture !== "unknown" && p.os !== "unknown").length > 3 && (
+                          {image.platforms.filter(
+                            (p) =>
+                              p.architecture !== "unknown" &&
+                              p.os !== "unknown",
+                          ).length > 3 && (
                             <Badge variant="outline" className="text-xs">
-                              +{image.platforms.filter((p) => p.architecture !== "unknown" && p.os !== "unknown").length - 3}
+                              +
+                              {image.platforms.filter(
+                                (p) =>
+                                  p.architecture !== "unknown" &&
+                                  p.os !== "unknown",
+                              ).length - 3}
                             </Badge>
                           )}
                         </>
-                      ) : image.architecture && image.architecture !== "unknown" ? (
+                      ) : image.architecture &&
+                        image.architecture !== "unknown" ? (
                         <Badge
                           variant="outline"
                           className={`text-xs ${getArchitectureColor(image.architecture)}`}

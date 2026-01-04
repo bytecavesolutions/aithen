@@ -223,7 +223,9 @@ export function ImagesTable({
       });
 
       if (response.ok) {
-        console.log(`[ImagesTable] Delete repository successful, reloading page`);
+        console.log(
+          `[ImagesTable] Delete repository successful, reloading page`,
+        );
         // Refresh the page to show updated data
         window.location.reload();
       } else {
@@ -254,7 +256,12 @@ export function ImagesTable({
       );
     } finally {
       setIsDeleting(false);
-      setDeleteRepoDialog({ open: false, repository: "", imageCount: 0, tagCount: 0 });
+      setDeleteRepoDialog({
+        open: false,
+        repository: "",
+        imageCount: 0,
+        tagCount: 0,
+      });
     }
   };
 
@@ -295,7 +302,9 @@ export function ImagesTable({
           {image.isMultiArch && image.platforms ? (
             <>
               {image.platforms
-                .filter((p) => p.architecture !== "unknown" && p.os !== "unknown")
+                .filter(
+                  (p) => p.architecture !== "unknown" && p.os !== "unknown",
+                )
                 .slice(0, 4)
                 .map((p) => (
                   <Badge
@@ -308,9 +317,15 @@ export function ImagesTable({
                     {formatPlatform(p.architecture, p.os)}
                   </Badge>
                 ))}
-              {image.platforms.filter((p) => p.architecture !== "unknown" && p.os !== "unknown").length > 4 && (
+              {image.platforms.filter(
+                (p) => p.architecture !== "unknown" && p.os !== "unknown",
+              ).length > 4 && (
                 <Badge variant="outline" className="text-xs">
-                  +{image.platforms.filter((p) => p.architecture !== "unknown" && p.os !== "unknown").length - 4} more
+                  +
+                  {image.platforms.filter(
+                    (p) => p.architecture !== "unknown" && p.os !== "unknown",
+                  ).length - 4}{" "}
+                  more
                 </Badge>
               )}
             </>
@@ -560,7 +575,9 @@ export function ImagesTable({
                   {deleteDialog.tags.join(", ")}
                 </p>
               )}
-              <p className="font-medium text-sm">This action cannot be undone.</p>
+              <p className="font-medium text-sm">
+                This action cannot be undone.
+              </p>
             </div>
             <DialogFooter>
               <Button
@@ -589,7 +606,9 @@ export function ImagesTable({
 
         <Dialog
           open={deleteRepoDialog.open}
-          onOpenChange={(open) => setDeleteRepoDialog({ ...deleteRepoDialog, open })}
+          onOpenChange={(open) =>
+            setDeleteRepoDialog({ ...deleteRepoDialog, open })
+          }
         >
           <DialogContent>
             <DialogHeader>
@@ -606,11 +625,19 @@ export function ImagesTable({
               <div className="text-destructive font-medium text-sm">
                 This will permanently delete:
                 <ul className="list-disc list-inside mt-2">
-                  <li>{deleteRepoDialog.imageCount} {deleteRepoDialog.imageCount === 1 ? "image" : "images"}</li>
-                  <li>{deleteRepoDialog.tagCount} {deleteRepoDialog.tagCount === 1 ? "tag" : "tags"}</li>
+                  <li>
+                    {deleteRepoDialog.imageCount}{" "}
+                    {deleteRepoDialog.imageCount === 1 ? "image" : "images"}
+                  </li>
+                  <li>
+                    {deleteRepoDialog.tagCount}{" "}
+                    {deleteRepoDialog.tagCount === 1 ? "tag" : "tags"}
+                  </li>
                 </ul>
               </div>
-              <p className="font-medium text-sm">This action cannot be undone.</p>
+              <p className="font-medium text-sm">
+                This action cannot be undone.
+              </p>
             </div>
             <DialogFooter>
               <Button
@@ -729,7 +756,9 @@ export function ImagesTable({
 
       <Dialog
         open={deleteRepoDialog.open}
-        onOpenChange={(open) => setDeleteRepoDialog({ ...deleteRepoDialog, open })}
+        onOpenChange={(open) =>
+          setDeleteRepoDialog({ ...deleteRepoDialog, open })
+        }
       >
         <DialogContent>
           <DialogHeader>
@@ -746,8 +775,14 @@ export function ImagesTable({
             <div className="text-destructive font-medium text-sm">
               This will permanently delete:
               <ul className="list-disc list-inside mt-2">
-                <li>{deleteRepoDialog.imageCount} {deleteRepoDialog.imageCount === 1 ? "image" : "images"}</li>
-                <li>{deleteRepoDialog.tagCount} {deleteRepoDialog.tagCount === 1 ? "tag" : "tags"}</li>
+                <li>
+                  {deleteRepoDialog.imageCount}{" "}
+                  {deleteRepoDialog.imageCount === 1 ? "image" : "images"}
+                </li>
+                <li>
+                  {deleteRepoDialog.tagCount}{" "}
+                  {deleteRepoDialog.tagCount === 1 ? "tag" : "tags"}
+                </li>
               </ul>
             </div>
             <p className="font-medium text-sm">This action cannot be undone.</p>

@@ -2,6 +2,8 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { getCurrentUser } from "@/lib/auth";
 import { deleteImage, getImageManifest } from "@/lib/registry";
+import { invalidateCache } from "@/lib/registry-cache";
+import { triggerImmediateSync } from "@/lib/registry-sync";
 import { isUserRepository } from "@/lib/registry-token";
 
 const deleteImageSchema = z
@@ -61,7 +63,7 @@ export async function POST(request: Request) {
       console.log(
         `[DELETE /api/registry/images/delete] Deleting all images in repository: ${repository}`,
       );
-      
+
       // Get all tags for the repository
       const { getRepositoryTags } = await import("@/lib/registry");
       const tags = await getRepositoryTags(repository);
@@ -145,6 +147,11 @@ export async function POST(request: Request) {
       console.log(
         `[DELETE /api/registry/images/delete] Successfully deleted all ${successCount} images from ${repository}`,
       );
+
+      // Invalidate cache and trigger sync after successful deletion
+      await invalidateCache();
+      triggerImmediateSync().catch(console.error);
+
       return NextResponse.json({
         success: true,
         message: `Successfully deleted all ${successCount} images from ${repository}`,
@@ -171,6 +178,11 @@ export async function POST(request: Request) {
       console.log(
         `[DELETE /api/registry/images/delete] Successfully deleted ${repository}@${digest}`,
       );
+
+      // Invalidate cache and trigger sync after successful deletion
+      await invalidateCache();
+      triggerImmediateSync().catch(console.error);
+
       return NextResponse.json({
         success: true,
         message: `Deleted ${repository}@${digest.substring(0, 19)}...`,
@@ -225,6 +237,11 @@ export async function POST(request: Request) {
         console.log(
           `[DELETE /api/registry/images/delete] Successfully deleted ${repository}:${tag} by tag reference`,
         );
+
+        // Invalidate cache and trigger sync after successful deletion
+        await invalidateCache();
+        triggerImmediateSync().catch(console.error);
+
         return NextResponse.json({
           success: true,
           message: `Deleted ${repository}:${tag} (recovered from inconsistent state)`,
@@ -262,6 +279,10 @@ export async function POST(request: Request) {
     console.log(
       `[DELETE /api/registry/images/delete] Successfully deleted ${repository}:${tag}`,
     );
+
+    // Invalidate cache and trigger sync after successful deletion
+    await invalidateCache();
+    triggerImmediateSync().catch(console.error);
 
     return NextResponse.json({
       success: true,

@@ -116,3 +116,25 @@ export const namespacesRelations = relations(namespaces, ({ one }) => ({
     references: [users.id],
   }),
 }));
+
+// Registry cache for storing repository data
+export const registryCache = sqliteTable("registry_cache", {
+  id: text("id").primaryKey(), // Cache key: "catalog", "repositories:all", "repositories:namespace:{name}"
+  data: text("data").notNull(), // JSON-serialized data
+  expiresAt: integer("expires_at", { mode: "timestamp" }).notNull(),
+  updatedAt: integer("updated_at", { mode: "timestamp" })
+    .notNull()
+    .$defaultFn(() => new Date()),
+});
+
+// Sync lock to prevent multiple workers from syncing simultaneously
+export const registrySyncLock = sqliteTable("registry_sync_lock", {
+  id: text("id").primaryKey().default("sync_lock"),
+  lockedAt: integer("locked_at", { mode: "timestamp" }),
+  lockedBy: text("locked_by"),
+  expiresAt: integer("expires_at", { mode: "timestamp" }),
+});
+
+export type RegistryCache = typeof registryCache.$inferSelect;
+export type NewRegistryCache = typeof registryCache.$inferInsert;
+export type RegistrySyncLock = typeof registrySyncLock.$inferSelect;

@@ -181,7 +181,8 @@ export async function getImageManifest(
 
     // Handle manifest lists / image indexes (multi-architecture images)
     if (
-      mediaType === "application/vnd.docker.distribution.manifest.list.v2+json" ||
+      mediaType ===
+        "application/vnd.docker.distribution.manifest.list.v2+json" ||
       mediaType === "application/vnd.oci.image.index.v1+json"
     ) {
       isMultiArch = true;
@@ -210,7 +211,8 @@ export async function getImageManifest(
             // Calculate actual size from layers + config
             const configSize = platformManifest.config?.size || 0;
             const layersSize = (platformManifest.layers || []).reduce(
-              (sum: number, layer: { size?: number }) => sum + (layer.size || 0),
+              (sum: number, layer: { size?: number }) =>
+                sum + (layer.size || 0),
               0,
             );
             platformTotalSize = configSize + layersSize;
@@ -256,7 +258,10 @@ export async function getImageManifest(
       // Fetch config blob to get architecture/os info
       if (manifest.config?.digest) {
         try {
-          const configData = await fetchConfigBlob(repository, manifest.config.digest);
+          const configData = await fetchConfigBlob(
+            repository,
+            manifest.config.digest,
+          );
           if (configData) {
             architecture = configData.architecture;
             os = configData.os;
@@ -452,7 +457,8 @@ export async function getDetailedManifest(
 
     // Check if this is a manifest list (multi-arch)
     const isMultiArch =
-      mediaType === "application/vnd.docker.distribution.manifest.list.v2+json" ||
+      mediaType ===
+        "application/vnd.docker.distribution.manifest.list.v2+json" ||
       mediaType === "application/vnd.oci.image.index.v1+json";
 
     if (isMultiArch) {

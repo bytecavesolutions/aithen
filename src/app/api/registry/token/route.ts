@@ -308,7 +308,10 @@ export async function POST(request: Request) {
         return NextResponse.json(
           {
             errors: [
-              { code: "INVALID_REQUEST", message: "Missing username or password" },
+              {
+                code: "INVALID_REQUEST",
+                message: "Missing username or password",
+              },
             ],
           },
           { status: 400 },
@@ -321,7 +324,9 @@ export async function POST(request: Request) {
 
       if (!user) {
         return NextResponse.json(
-          { errors: [{ code: "UNAUTHORIZED", message: "Invalid credentials" }] },
+          {
+            errors: [{ code: "UNAUTHORIZED", message: "Invalid credentials" }],
+          },
           { status: 401 },
         );
       }
@@ -363,7 +368,9 @@ export async function POST(request: Request) {
 
       if (!passwordValid) {
         return NextResponse.json(
-          { errors: [{ code: "UNAUTHORIZED", message: "Invalid credentials" }] },
+          {
+            errors: [{ code: "UNAUTHORIZED", message: "Invalid credentials" }],
+          },
           { status: 401 },
         );
       }

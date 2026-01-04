@@ -106,6 +106,26 @@ export async function runMigrations(silent = false): Promise<void> {
     );
   `);
 
+  // Create registry_cache table for caching registry data
+  db.run(`
+    CREATE TABLE IF NOT EXISTS registry_cache (
+      id TEXT PRIMARY KEY NOT NULL,
+      data TEXT NOT NULL,
+      expires_at INTEGER NOT NULL,
+      updated_at INTEGER NOT NULL
+    );
+  `);
+
+  // Create registry_sync_lock table for preventing concurrent syncs
+  db.run(`
+    CREATE TABLE IF NOT EXISTS registry_sync_lock (
+      id TEXT PRIMARY KEY DEFAULT 'sync_lock',
+      locked_at INTEGER,
+      locked_by TEXT,
+      expires_at INTEGER
+    );
+  `);
+
   // Create indexes for better performance
   db.run(`
     CREATE INDEX IF NOT EXISTS idx_users_username ON users(username);
@@ -120,6 +140,7 @@ export async function runMigrations(silent = false): Promise<void> {
     CREATE INDEX IF NOT EXISTS idx_namespaces_user_id ON namespaces(user_id);
     CREATE UNIQUE INDEX IF NOT EXISTS namespaces_name_unique ON namespaces(name);
     CREATE INDEX IF NOT EXISTS idx_namespaces_is_default ON namespaces(is_default);
+    CREATE INDEX IF NOT EXISTS idx_registry_cache_expires_at ON registry_cache(expires_at);
   `);
 
   db.close();

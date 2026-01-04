@@ -1,4 +1,13 @@
-import { ArrowLeft, Box, Copy, Cpu, Hash, Layers, Monitor, Tag } from "lucide-react";
+import {
+  ArrowLeft,
+  Box,
+  Copy,
+  Cpu,
+  Hash,
+  Layers,
+  Monitor,
+  Tag,
+} from "lucide-react";
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { Badge } from "@/components/ui/badge";
@@ -129,7 +138,9 @@ export default async function ImageDetailPage({
               {formatBytes(manifest.size)}
             </div>
             <p className="text-xs text-muted-foreground">
-              {manifest.isMultiArch ? "All platforms combined" : "Compressed size"}
+              {manifest.isMultiArch
+                ? "All platforms combined"
+                : "Compressed size"}
             </p>
           </CardContent>
         </Card>
@@ -152,9 +163,7 @@ export default async function ImageDetailPage({
                 : manifest.layers.length}
             </div>
             <p className="text-xs text-muted-foreground">
-              {manifest.isMultiArch
-                ? "Architecture variants"
-                : "Image layers"}
+              {manifest.isMultiArch ? "Architecture variants" : "Image layers"}
             </p>
           </CardContent>
         </Card>
@@ -178,7 +187,10 @@ export default async function ImageDetailPage({
           <CardContent>
             <div className="text-sm font-semibold">
               {manifest.isMultiArch ? (
-                <Badge variant="outline" className="bg-violet-500/10 text-violet-600 dark:text-violet-400 border-violet-500/20">
+                <Badge
+                  variant="outline"
+                  className="bg-violet-500/10 text-violet-600 dark:text-violet-400 border-violet-500/20"
+                >
                   Multi-arch
                 </Badge>
               ) : (
@@ -279,11 +291,15 @@ export default async function ImageDetailPage({
               Platform Variants
             </CardTitle>
             <CardDescription>
-              This is a multi-architecture image with {manifest.platforms.length} platform variants
+              This is a multi-architecture image with{" "}
+              {manifest.platforms.length} platform variants
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <Tabs defaultValue={manifest.platforms[0]?.architecture || "0"} className="w-full">
+            <Tabs
+              defaultValue={manifest.platforms[0]?.architecture || "0"}
+              className="w-full"
+            >
               <TabsList className="mb-4 flex-wrap h-auto gap-1">
                 {manifest.platforms.map((platform) => (
                   <TabsTrigger
@@ -297,45 +313,72 @@ export default async function ImageDetailPage({
                 ))}
               </TabsList>
               {manifest.platforms.map((platform) => (
-                <TabsContent key={platform.digest} value={platform.architecture} className="space-y-4">
+                <TabsContent
+                  key={platform.digest}
+                  value={platform.architecture}
+                  className="space-y-4"
+                >
                   {/* Platform Summary */}
                   <div className="grid gap-4 grid-cols-2 md:grid-cols-4">
                     <div className="rounded-lg border p-3">
-                      <div className="text-xs text-muted-foreground mb-1">Architecture</div>
+                      <div className="text-xs text-muted-foreground mb-1">
+                        Architecture
+                      </div>
                       <div className="font-semibold flex items-center gap-2">
-                        <Badge variant="outline" className={getArchitectureColor(platform.architecture)}>
+                        <Badge
+                          variant="outline"
+                          className={getArchitectureColor(
+                            platform.architecture,
+                          )}
+                        >
                           {platform.architecture}
                         </Badge>
                       </div>
                     </div>
                     <div className="rounded-lg border p-3">
-                      <div className="text-xs text-muted-foreground mb-1">OS</div>
+                      <div className="text-xs text-muted-foreground mb-1">
+                        OS
+                      </div>
                       <div className="font-semibold">{platform.os}</div>
                     </div>
                     <div className="rounded-lg border p-3">
-                      <div className="text-xs text-muted-foreground mb-1">Size</div>
-                      <div className="font-semibold">{formatBytes(platform.size)}</div>
+                      <div className="text-xs text-muted-foreground mb-1">
+                        Size
+                      </div>
+                      <div className="font-semibold">
+                        {formatBytes(platform.size)}
+                      </div>
                     </div>
                     <div className="rounded-lg border p-3">
-                      <div className="text-xs text-muted-foreground mb-1">Layers</div>
+                      <div className="text-xs text-muted-foreground mb-1">
+                        Layers
+                      </div>
                       <div className="font-semibold">{platform.layerCount}</div>
                     </div>
                   </div>
 
                   {/* Platform Digest */}
                   <div className="rounded-lg bg-muted p-3">
-                    <div className="text-xs text-muted-foreground mb-1">Platform Digest</div>
-                    <code className="font-mono text-xs break-all">{platform.digest}</code>
+                    <div className="text-xs text-muted-foreground mb-1">
+                      Platform Digest
+                    </div>
+                    <code className="font-mono text-xs break-all">
+                      {platform.digest}
+                    </code>
                   </div>
 
                   {/* Platform Config */}
                   {platform.config && (
                     <div className="rounded-lg border p-4 space-y-2">
-                      <div className="text-sm font-medium mb-2">Config Blob</div>
+                      <div className="text-sm font-medium mb-2">
+                        Config Blob
+                      </div>
                       <div className="font-mono text-xs space-y-1 text-muted-foreground">
                         <div className="flex justify-between">
                           <span>Digest:</span>
-                          <span className="truncate max-w-[70%]">{platform.config.digest}</span>
+                          <span className="truncate max-w-[70%]">
+                            {platform.config.digest}
+                          </span>
                         </div>
                         <div className="flex justify-between">
                           <span>Size:</span>
@@ -348,7 +391,9 @@ export default async function ImageDetailPage({
                   {/* Platform Layers */}
                   {platform.layers.length > 0 && (
                     <div>
-                      <div className="text-sm font-medium mb-2">Layers ({platform.layers.length})</div>
+                      <div className="text-sm font-medium mb-2">
+                        Layers ({platform.layers.length})
+                      </div>
                       <Table>
                         <TableHeader>
                           <TableRow>
