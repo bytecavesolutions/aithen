@@ -188,13 +188,19 @@ function LoginPageContent() {
 
     autoTriggerInitiated.current = true;
 
-    const performAutoTrigger = async () => {
-      // Wait for page to settle
-      await new Promise((resolve) => setTimeout(resolve, 1000));
+    // OIDC auto-trigger - redirect immediately without delay
+    if (loginMethods.autoTrigger === "oidc" && loginMethods.oidcEnabled) {
+      setHasAutoTriggered(true);
+      window.location.href = "/api/auth/oidc/authorize";
+      return;
+    }
 
-      if (hasAutoTriggered || isPasskeyLoading) return;
+    // Passkey auto-trigger - delay to let page settle
+    if (loginMethods.autoTrigger === "passkey" && loginMethods.passkeyEnabled) {
+      const performAutoTrigger = async () => {
+        await new Promise((resolve) => setTimeout(resolve, 1000));
+        if (hasAutoTriggered || isPasskeyLoading) return;
 
-      if (loginMethods.autoTrigger === "passkey" && loginMethods.passkeyEnabled) {
         setHasAutoTriggered(true);
         setIsAutoTrigger(true);
         try {
@@ -202,13 +208,9 @@ function LoginPageContent() {
         } finally {
           setIsAutoTrigger(false);
         }
-      } else if (loginMethods.autoTrigger === "oidc" && loginMethods.oidcEnabled) {
-        setHasAutoTriggered(true);
-        window.location.href = "/api/auth/oidc/authorize";
-      }
-    };
-
-    performAutoTrigger();
+      };
+      performAutoTrigger();
+    }
   }, [handlePasskeyLogin, hasAutoTriggered, isPasskeyLoading, loginMethods]);
 
   async function onSubmit(data: LoginInput) {
