@@ -8,6 +8,9 @@ const publicPaths = [
   "/api/auth/passkey/check",
   "/api/auth/passkey/login/options",
   "/api/auth/passkey/login/verify",
+  "/api/auth/oidc/status", // OIDC status check (for login page)
+  "/api/auth/oidc/authorize", // OIDC login initiation
+  "/api/auth/oidc/callback", // OIDC provider callback
   "/api/registry/token", // Docker registry token endpoint (uses Basic auth)
   "/api/registry/jwks", // JWKS endpoint for public key discovery
 ];
