@@ -79,13 +79,12 @@ function LoginPageContent() {
     async function checkOIDCStatus() {
       try {
         const response = await fetch("/api/auth/oidc/status");
-        const data = await response.json();
-        console.log("OIDC status response:", data);
-        if (response.ok && data.enabled) {
-          setOIDCEnabled(true);
+        if (response.ok) {
+          const data = await response.json();
+          setOIDCEnabled(data.enabled);
         }
-      } catch (err) {
-        console.error("Failed to check OIDC status:", err);
+      } catch {
+        // Silently ignore - OIDC button just won't show
       }
     }
     checkOIDCStatus();
