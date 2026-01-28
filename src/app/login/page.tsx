@@ -56,6 +56,9 @@ interface LoginMethodsStatus {
   autoTrigger: "none" | "passkey" | "oidc";
 }
 
+// sessionStorage key to track if OIDC auto-trigger has been attempted this session
+const OIDC_AUTO_TRIGGER_KEY = "oidc_auto_triggered";
+
 function LoginPageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -195,6 +198,13 @@ function LoginPageContent() {
 
     // OIDC auto-trigger - redirect immediately without delay
     if (loginMethods.autoTrigger === "oidc" && loginMethods.oidcEnabled) {
+      // Skip if already attempted this session (prevents loop when provider silently redirects back)
+      if (sessionStorage.getItem(OIDC_AUTO_TRIGGER_KEY)) {
+        return;
+      }
+
+      // Mark as attempted before redirecting
+      sessionStorage.setItem(OIDC_AUTO_TRIGGER_KEY, "true");
       setHasAutoTriggered(true);
       window.location.href = "/api/auth/oidc/authorize";
       return;
