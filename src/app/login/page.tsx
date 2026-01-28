@@ -2,7 +2,7 @@
 
 import { zodResolver } from "@hookform/resolvers/zod";
 import { startAuthentication } from "@simplewebauthn/browser";
-import { Container, Fingerprint, Key, LogIn } from "lucide-react";
+import { Container, Fingerprint, LogIn } from "lucide-react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useCallback, useEffect, useRef, useState } from "react";
 import { useForm } from "react-hook-form";
@@ -49,6 +49,13 @@ function LoginFallback() {
   );
 }
 
+interface LoginMethodsStatus {
+  passwordEnabled: boolean;
+  passkeyEnabled: boolean;
+  oidcEnabled: boolean;
+  autoTrigger: "none" | "passkey" | "oidc";
+}
+
 function LoginPageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -56,10 +63,9 @@ function LoginPageContent() {
   const [isLoading, setIsLoading] = useState(false);
   const [isPasskeyLoading, setIsPasskeyLoading] = useState(false);
   const [isOIDCLoading, setIsOIDCLoading] = useState(false);
-  const [showPasswordForm, setShowPasswordForm] = useState(false);
   const [hasAutoTriggered, setHasAutoTriggered] = useState(false);
   const [isAutoTrigger, setIsAutoTrigger] = useState(false);
-  const [oidcEnabled, setOIDCEnabled] = useState(false);
+  const [loginMethods, setLoginMethods] = useState<LoginMethodsStatus | null>(null);
   const autoTriggerInitiated = useRef(false);
 
   // Check for error in URL params (from OIDC callback)
@@ -74,20 +80,26 @@ function LoginPageContent() {
     }
   }, [searchParams]);
 
-  // Check if OIDC is enabled
+  // Fetch login methods status
   useEffect(() => {
-    async function checkOIDCStatus() {
+    async function fetchLoginMethodsStatus() {
       try {
-        const response = await fetch("/api/auth/oidc/status");
+        const response = await fetch("/api/auth/login-methods/status");
         if (response.ok) {
-          const data = await response.json();
-          setOIDCEnabled(data.enabled);
+          const data: LoginMethodsStatus = await response.json();
+          setLoginMethods(data);
         }
       } catch {
-        // Silently ignore - OIDC button just won't show
+        // Fallback to defaults if fetch fails
+        setLoginMethods({
+          passwordEnabled: true,
+          passkeyEnabled: true,
+          oidcEnabled: false,
+          autoTrigger: "passkey",
+        });
       }
     }
-    checkOIDCStatus();
+    fetchLoginMethodsStatus();
   }, []);
 
   const form = useForm<LoginInput>({
@@ -99,38 +111,24 @@ function LoginPageContent() {
   });
 
   const handlePasskeyLogin = useCallback(async () => {
-    if (isPasskeyLoading) {
-      console.log("Passkey login already in progress, skipping...");
-      return;
-    }
+    if (isPasskeyLoading) return;
 
-    console.log("🔐 Starting passkey login...");
     setIsPasskeyLoading(true);
     setError(null);
 
     try {
-      // Get authentication options (no username needed for discoverable credentials)
-      console.log("Fetching authentication options...");
       const optionsResponse = await fetch("/api/auth/passkey/login/options", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({}),
       });
 
-      console.log("Options response status:", optionsResponse.status);
-
       if (!optionsResponse.ok) {
         const errorData = await optionsResponse.json();
-        console.error("Options error:", errorData);
-        throw new Error(
-          errorData.details || "Failed to get authentication options",
-        );
+        throw new Error(errorData.details || "Failed to get authentication options");
       }
 
       const options = await optionsResponse.json();
-      console.log("✅ Options received:", options);
-
-      // Start authentication with the browser
       const authResponse = await startAuthentication({ optionsJSON: options });
 
       // Verify authentication
@@ -150,34 +148,19 @@ function LoginPageContent() {
       router.push("/dashboard");
       router.refresh();
     } catch (err) {
-      // Handle cancellation and abort errors
       const isCancelled =
         err instanceof Error &&
         (err.name === "NotAllowedError" || err.name === "AbortError");
 
-      // Silently ignore cancellations from auto-triggered attempts
-      if (isAutoTrigger) {
-        // Don't log or show anything for auto-triggered attempts
-        if (!isCancelled) {
-          console.log(
-            "Auto-trigger passkey failed:",
-            err instanceof Error ? err.message : err,
-          );
-        }
-        return;
-      }
-
-      // For manual attempts, only log non-cancellation errors
-      if (!isCancelled) {
-        console.error("Passkey login error:", err);
-      }
-
-      // Show user-friendly error messages
+      // Silently ignore cancellations - user knows they cancelled
       if (isCancelled) {
-        // Don't show error for cancellations - user knows they cancelled
         return;
       }
 
+      // For auto-triggered attempts, don't show UI errors
+      if (isAutoTrigger) {
+        return;
+      }
       setError(
         err instanceof Error
           ? err.message
@@ -188,35 +171,45 @@ function LoginPageContent() {
     }
   }, [isPasskeyLoading, isAutoTrigger, router]);
 
-  // Auto-trigger passkey on page load (like Go implementation)
+  // Auto-trigger based on settings
   useEffect(() => {
+    // Wait for login methods to load
+    if (!loginMethods) return;
+
     // Prevent React Strict Mode from running this twice
     if (autoTriggerInitiated.current || hasAutoTriggered || isPasskeyLoading) {
       return;
     }
 
+    // No auto-trigger if setting is "none"
+    if (loginMethods.autoTrigger === "none") {
+      return;
+    }
+
     autoTriggerInitiated.current = true;
 
-    const autoTriggerPasskey = async () => {
+    const performAutoTrigger = async () => {
       // Wait for page to settle
       await new Promise((resolve) => setTimeout(resolve, 1000));
 
       if (hasAutoTriggered || isPasskeyLoading) return;
 
-      try {
-        console.log("🔐 Auto-triggering passkey authentication...");
+      if (loginMethods.autoTrigger === "passkey" && loginMethods.passkeyEnabled) {
         setHasAutoTriggered(true);
         setIsAutoTrigger(true);
-        await handlePasskeyLogin();
-      } catch (_err) {
-        // Silently ignore auto-trigger errors
-      } finally {
-        setIsAutoTrigger(false);
+        try {
+          await handlePasskeyLogin();
+        } finally {
+          setIsAutoTrigger(false);
+        }
+      } else if (loginMethods.autoTrigger === "oidc" && loginMethods.oidcEnabled) {
+        setHasAutoTriggered(true);
+        window.location.href = "/api/auth/oidc/authorize";
       }
     };
 
-    autoTriggerPasskey();
-  }, [handlePasskeyLogin, hasAutoTriggered, isPasskeyLoading]);
+    performAutoTrigger();
+  }, [handlePasskeyLogin, hasAutoTriggered, isPasskeyLoading, loginMethods]);
 
   async function onSubmit(data: LoginInput) {
     setIsLoading(true);
@@ -276,7 +269,7 @@ function LoginPageContent() {
               )}
 
               {/* SSO login button (shown only if OIDC is enabled) */}
-              {!showPasswordForm && oidcEnabled && (
+              {loginMethods?.oidcEnabled && (
                 <Button
                   type="button"
                   onClick={handleOIDCLogin}
@@ -295,7 +288,7 @@ function LoginPageContent() {
               )}
 
               {/* Passkey login button */}
-              {!showPasswordForm && (
+              {loginMethods?.passkeyEnabled && (
                 <Button
                   type="button"
                   onClick={handlePasskeyLogin}
@@ -314,7 +307,9 @@ function LoginPageContent() {
                 </Button>
               )}
 
-              {!showPasswordForm && (
+              {/* Divider - shown when password is enabled and other methods are also available */}
+              {loginMethods?.passwordEnabled &&
+                (loginMethods?.oidcEnabled || loginMethods?.passkeyEnabled) && (
                 <div className="relative">
                   <div className="absolute inset-0 flex items-center">
                     <span className="w-full border-t" />
@@ -327,26 +322,27 @@ function LoginPageContent() {
                 </div>
               )}
 
-              <FormField
-                control={form.control}
-                name="username"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Username</FormLabel>
-                    <FormControl>
-                      <Input
-                        placeholder="Enter your username"
-                        autoComplete="username webauthn"
-                        {...field}
-                      />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-
-              {!showPasswordForm ? (
+              {/* Password login form - shown when password login is enabled */}
+              {loginMethods?.passwordEnabled && (
                 <>
+                  <FormField
+                    control={form.control}
+                    name="username"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Username</FormLabel>
+                        <FormControl>
+                          <Input
+                            placeholder="Enter your username"
+                            autoComplete="username webauthn"
+                            {...field}
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
                   <FormField
                     control={form.control}
                     name="password"
@@ -369,19 +365,6 @@ function LoginPageContent() {
                     {isLoading ? "Signing in..." : "Sign in with Password"}
                   </Button>
                 </>
-              ) : (
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={() => {
-                    setShowPasswordForm(false);
-                    setError(null);
-                  }}
-                  className="w-full"
-                >
-                  <Key className="mr-2 h-4 w-4" />
-                  Back to login
-                </Button>
               )}
             </form>
           </Form>

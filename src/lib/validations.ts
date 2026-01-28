@@ -148,3 +148,12 @@ export const oidcSettingsSchema = z.object({
 });
 
 export type OIDCSettingsInput = z.infer<typeof oidcSettingsSchema>;
+
+// Login methods settings schema
+export const loginMethodsSettingsSchema = z.object({
+  passwordEnabled: z.boolean(),
+  passkeyEnabled: z.boolean(),
+  autoTrigger: z.enum(["none", "passkey", "oidc"]),
+});
+
+export type LoginMethodsSettingsInput = z.infer<typeof loginMethodsSettingsSchema>;

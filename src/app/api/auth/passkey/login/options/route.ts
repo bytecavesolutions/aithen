@@ -1,11 +1,24 @@
 import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
+import { getLoginMethodsConfig } from "@/lib/login-settings";
 import { generateAuthenticationOpts } from "@/lib/passkey";
 
 export async function POST(_request: Request) {
   console.log("🔐 Passkey login options requested");
 
   try {
+    // Check if passkey login is enabled
+    const loginConfig = await getLoginMethodsConfig();
+    if (!loginConfig.passkeyEnabled) {
+      return NextResponse.json(
+        {
+          error: "Passkey login is disabled",
+          details: "Passkey authentication has been disabled by the administrator",
+        },
+        { status: 403 },
+      );
+    }
+
     // No username needed - using discoverable credentials
     console.log("Generating authentication options...");
     const options = await generateAuthenticationOpts();

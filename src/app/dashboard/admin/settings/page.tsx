@@ -1,4 +1,5 @@
 import { redirect } from "next/navigation";
+import { LoginMethodsSettings } from "@/components/dashboard/login-methods-settings";
 import { OIDCSettings } from "@/components/dashboard/oidc-settings";
 import { getCurrentUser } from "@/lib/auth";
 
@@ -21,6 +22,8 @@ export default async function AdminSettingsPage() {
           Configure system-wide settings and authentication options
         </p>
       </div>
+
+      <LoginMethodsSettings />
 
       <OIDCSettings />
     </div>

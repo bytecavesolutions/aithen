@@ -5,6 +5,7 @@ import { needsSetup } from "@/lib/setup";
 const publicPaths = [
   "/login",
   "/api/auth/login",
+  "/api/auth/login-methods/status", // Login methods status (for login page)
   "/api/auth/passkey/check",
   "/api/auth/passkey/login/options",
   "/api/auth/passkey/login/verify",
