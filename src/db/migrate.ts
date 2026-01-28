@@ -26,13 +26,13 @@ export async function runMigrations(silent = false): Promise<void> {
   db.run("PRAGMA journal_mode = WAL;");
   db.run("PRAGMA foreign_keys = ON;");
 
-  // Create users table
+  // Create users table (password_hash is nullable to support OIDC-only users)
   db.run(`
     CREATE TABLE IF NOT EXISTS users (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       username TEXT NOT NULL UNIQUE,
       email TEXT NOT NULL UNIQUE,
-      password_hash TEXT NOT NULL,
+      password_hash TEXT,
       role TEXT NOT NULL DEFAULT 'user' CHECK(role IN ('admin', 'user')),
       created_at INTEGER NOT NULL DEFAULT (unixepoch()),
       updated_at INTEGER NOT NULL DEFAULT (unixepoch())
@@ -126,6 +126,42 @@ export async function runMigrations(silent = false): Promise<void> {
     );
   `);
 
+  // Create settings table for application-wide settings (including OIDC config)
+  db.run(`
+    CREATE TABLE IF NOT EXISTS settings (
+      key TEXT PRIMARY KEY NOT NULL,
+      value TEXT NOT NULL,
+      updated_at INTEGER NOT NULL DEFAULT (unixepoch())
+    );
+  `);
+
+  // Create oauth_accounts table for linked OAuth accounts
+  db.run(`
+    CREATE TABLE IF NOT EXISTS oauth_accounts (
+      id TEXT PRIMARY KEY NOT NULL,
+      user_id INTEGER NOT NULL,
+      provider TEXT NOT NULL,
+      provider_account_id TEXT NOT NULL,
+      provider_username TEXT,
+      email TEXT,
+      name TEXT,
+      created_at INTEGER NOT NULL DEFAULT (unixepoch()),
+      updated_at INTEGER NOT NULL DEFAULT (unixepoch()),
+      FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+    );
+  `);
+
+  // Create oauth_states table for CSRF protection during OAuth flow
+  db.run(`
+    CREATE TABLE IF NOT EXISTS oauth_states (
+      id TEXT PRIMARY KEY NOT NULL,
+      code_verifier TEXT NOT NULL,
+      redirect_uri TEXT,
+      expires_at INTEGER NOT NULL,
+      created_at INTEGER NOT NULL DEFAULT (unixepoch())
+    );
+  `);
+
   // Create indexes for better performance
   db.run(`
     CREATE INDEX IF NOT EXISTS idx_users_username ON users(username);
@@ -141,6 +177,10 @@ export async function runMigrations(silent = false): Promise<void> {
     CREATE UNIQUE INDEX IF NOT EXISTS namespaces_name_unique ON namespaces(name);
     CREATE INDEX IF NOT EXISTS idx_namespaces_is_default ON namespaces(is_default);
     CREATE INDEX IF NOT EXISTS idx_registry_cache_expires_at ON registry_cache(expires_at);
+    CREATE INDEX IF NOT EXISTS idx_oauth_accounts_user_id ON oauth_accounts(user_id);
+    CREATE INDEX IF NOT EXISTS idx_oauth_accounts_provider ON oauth_accounts(provider);
+    CREATE UNIQUE INDEX IF NOT EXISTS oauth_accounts_provider_account_unique ON oauth_accounts(provider, provider_account_id);
+    CREATE INDEX IF NOT EXISTS idx_oauth_states_expires_at ON oauth_states(expires_at);
   `);
 
   db.close();

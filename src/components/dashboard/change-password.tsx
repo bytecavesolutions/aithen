@@ -1,7 +1,7 @@
 "use client";
 
 import { zodResolver } from "@hookform/resolvers/zod";
-import { useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
 import { Button } from "@/components/ui/button";
 import {
@@ -29,6 +29,7 @@ export function ChangePassword() {
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
+  const [hasPassword, setHasPassword] = useState(true);
 
   const form = useForm<ChangePasswordInput>({
     resolver: zodResolver(changePasswordSchema),
@@ -38,6 +39,23 @@ export function ChangePassword() {
       confirmPassword: "",
     },
   });
+
+  // Check if user has a password (they might be OIDC-only)
+  const checkPasswordStatus = useCallback(async () => {
+    try {
+      const response = await fetch("/api/auth/me");
+      if (response.ok) {
+        const data = await response.json();
+        setHasPassword(data.user?.hasPassword ?? true);
+      }
+    } catch (err) {
+      console.error("Failed to check password status:", err);
+    }
+  }, []);
+
+  useEffect(() => {
+    checkPasswordStatus();
+  }, [checkPasswordStatus]);
 
   async function onSubmit(data: ChangePasswordInput) {
     setIsLoading(true);
@@ -101,24 +119,31 @@ export function ChangePassword() {
             )}
 
             <div className="grid gap-4">
-              <FormField
-                control={form.control}
-                name="currentPassword"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Current Password</FormLabel>
-                    <FormControl>
-                      <Input
-                        type="password"
-                        placeholder="••••••••"
-                        autoComplete="current-password"
-                        {...field}
-                      />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
+              {hasPassword ? (
+                <FormField
+                  control={form.control}
+                  name="currentPassword"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Current Password</FormLabel>
+                      <FormControl>
+                        <Input
+                          type="password"
+                          placeholder="••••••••"
+                          autoComplete="current-password"
+                          {...field}
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              ) : (
+                <div className="rounded-md bg-blue-500/10 p-3 text-sm text-blue-600 dark:text-blue-400">
+                  You signed up with SSO and don't have a password yet. Set one
+                  below to enable password login.
+                </div>
+              )}
 
               <div className="grid gap-4 sm:grid-cols-2">
                 <FormField

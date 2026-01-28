@@ -121,8 +121,10 @@ export async function GET(request: Request) {
       );
     }
 
-    // Try password authentication first
-    let passwordValid = await verifyPassword(password, user.passwordHash);
+    // Try password authentication first (skip if user has no password - OIDC-only users)
+    let passwordValid = user.passwordHash
+      ? await verifyPassword(password, user.passwordHash)
+      : false;
     let isAccessToken = false;
     let tokenPermissions: string[] = [];
 
@@ -331,8 +333,10 @@ export async function POST(request: Request) {
         );
       }
 
-      // Try password authentication first
-      let passwordValid = await verifyPassword(password, user.passwordHash);
+      // Try password authentication first (skip if user has no password - OIDC-only users)
+      let passwordValid = user.passwordHash
+        ? await verifyPassword(password, user.passwordHash)
+        : false;
       let isAccessToken = false;
       let tokenPermissions: string[] = [];
 

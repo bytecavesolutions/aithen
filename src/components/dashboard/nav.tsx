@@ -7,6 +7,7 @@ import {
   LayoutDashboard,
   LogOut,
   Settings,
+  Shield,
   Users,
 } from "lucide-react";
 import Link from "next/link";
@@ -60,6 +61,12 @@ const navItems = [
     href: "/dashboard/settings",
     label: "Settings",
     icon: Settings,
+  },
+  {
+    href: "/dashboard/admin/settings",
+    label: "Admin",
+    icon: Shield,
+    adminOnly: true,
   },
 ];
 
@@ -177,7 +184,9 @@ export function DashboardNav({ user }: DashboardNavProps) {
               )}
             >
               <item.icon className="h-5 w-5 shrink-0" />
-              <span className="text-[11px] xs:text-xs font-medium truncate max-w-[60px]">{item.label}</span>
+              <span className="text-[11px] xs:text-xs font-medium truncate max-w-[60px]">
+                {item.label}
+              </span>
             </Link>
           ))}
         </div>

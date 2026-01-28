@@ -35,6 +35,17 @@ export async function POST(request: Request) {
       );
     }
 
+    // Check if user has a password (OIDC-only users won't)
+    if (!user.passwordHash) {
+      return NextResponse.json(
+        {
+          error:
+            "This account uses SSO. Please sign in with your identity provider.",
+        },
+        { status: 401 },
+      );
+    }
+
     // Verify password
     const isValid = await verifyPassword(password, user.passwordHash);
 

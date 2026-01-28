@@ -2,9 +2,9 @@
 
 import { zodResolver } from "@hookform/resolvers/zod";
 import { startAuthentication } from "@simplewebauthn/browser";
-import { Container, Fingerprint, Key } from "lucide-react";
-import { useRouter } from "next/navigation";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { Container, Fingerprint, Key, LogIn } from "lucide-react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { Suspense, useCallback, useEffect, useRef, useState } from "react";
 import { useForm } from "react-hook-form";
 import { Button } from "@/components/ui/button";
 import {
@@ -26,14 +26,69 @@ import { Input } from "@/components/ui/input";
 import { type LoginInput, loginSchema } from "@/lib/validations";
 
 export default function LoginPage() {
+  return (
+    <Suspense fallback={<LoginFallback />}>
+      <LoginPageContent />
+    </Suspense>
+  );
+}
+
+function LoginFallback() {
+  return (
+    <div className="flex min-h-screen items-center justify-center bg-background px-4">
+      <Card className="w-full max-w-md">
+        <CardHeader className="space-y-1 text-center">
+          <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-primary/10">
+            <Container className="h-8 w-8 text-primary" />
+          </div>
+          <CardTitle className="text-2xl font-bold">Registry Hub</CardTitle>
+          <CardDescription>Loading...</CardDescription>
+        </CardHeader>
+      </Card>
+    </div>
+  );
+}
+
+function LoginPageContent() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [isPasskeyLoading, setIsPasskeyLoading] = useState(false);
+  const [isOIDCLoading, setIsOIDCLoading] = useState(false);
   const [showPasswordForm, setShowPasswordForm] = useState(false);
   const [hasAutoTriggered, setHasAutoTriggered] = useState(false);
   const [isAutoTrigger, setIsAutoTrigger] = useState(false);
+  const [oidcEnabled, setOIDCEnabled] = useState(false);
   const autoTriggerInitiated = useRef(false);
+
+  // Check for error in URL params (from OIDC callback)
+  useEffect(() => {
+    const urlError = searchParams.get("error");
+    if (urlError) {
+      setError(urlError);
+      // Clear the error from URL
+      const url = new URL(window.location.href);
+      url.searchParams.delete("error");
+      window.history.replaceState({}, "", url.toString());
+    }
+  }, [searchParams]);
+
+  // Check if OIDC is enabled
+  useEffect(() => {
+    async function checkOIDCStatus() {
+      try {
+        const response = await fetch("/api/auth/oidc/status");
+        if (response.ok) {
+          const data = await response.json();
+          setOIDCEnabled(data.enabled);
+        }
+      } catch (err) {
+        console.error("Failed to check OIDC status:", err);
+      }
+    }
+    checkOIDCStatus();
+  }, []);
 
   const form = useForm<LoginInput>({
     resolver: zodResolver(loginSchema),
@@ -192,6 +247,13 @@ export default function LoginPage() {
     }
   }
 
+  function handleOIDCLogin() {
+    setIsOIDCLoading(true);
+    setError(null);
+    // Redirect to OIDC authorize endpoint
+    window.location.href = "/api/auth/oidc/authorize";
+  }
+
   return (
     <div className="flex min-h-screen items-center justify-center bg-background px-4">
       <Card className="w-full max-w-md">
@@ -213,7 +275,26 @@ export default function LoginPage() {
                 </div>
               )}
 
-              {/* Always visible passkey login button */}
+              {/* SSO login button (shown only if OIDC is enabled) */}
+              {!showPasswordForm && oidcEnabled && (
+                <Button
+                  type="button"
+                  onClick={handleOIDCLogin}
+                  className="w-full"
+                  disabled={isOIDCLoading}
+                >
+                  {isOIDCLoading ? (
+                    "Redirecting..."
+                  ) : (
+                    <>
+                      <LogIn className="mr-2 h-4 w-4" />
+                      Sign in with SSO
+                    </>
+                  )}
+                </Button>
+              )}
+
+              {/* Passkey login button */}
               {!showPasswordForm && (
                 <Button
                   type="button"

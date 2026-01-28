@@ -38,14 +38,17 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "User not found" }, { status: 404 });
     }
 
-    // Verify current password
-    const isValid = await bcrypt.compare(currentPassword, user.passwordHash);
+    // For OIDC-only users (no password), allow setting a password
+    // For users with existing passwords, verify the current password
+    if (user.passwordHash) {
+      const isValid = await bcrypt.compare(currentPassword, user.passwordHash);
 
-    if (!isValid) {
-      return NextResponse.json(
-        { error: "Current password is incorrect" },
-        { status: 401 },
-      );
+      if (!isValid) {
+        return NextResponse.json(
+          { error: "Current password is incorrect" },
+          { status: 401 },
+        );
+      }
     }
 
     // Hash new password

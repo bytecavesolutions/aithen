@@ -76,8 +76,11 @@ export async function getCurrentUser() {
     return null;
   }
 
-  const { passwordHash: _, ...safeUser } = user;
-  return safeUser;
+  const { passwordHash, ...safeUser } = user;
+  return {
+    ...safeUser,
+    hasPassword: !!passwordHash, // Include whether user has a password set
+  };
 }
 
 export async function deleteSession(sessionId: string): Promise<void> {

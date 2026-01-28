@@ -135,3 +135,16 @@ export type CreateNamespaceInput = z.infer<typeof createNamespaceSchema>;
 export type UpdateNamespaceInput = z.infer<typeof updateNamespaceSchema>;
 export type CheckNamespaceInput = z.infer<typeof checkNamespaceSchema>;
 export type DeleteAccessTokenInput = z.infer<typeof deleteAccessTokenSchema>;
+
+// OIDC settings schema
+export const oidcSettingsSchema = z.object({
+  enabled: z.boolean(),
+  issuerUrl: z.string().min(1, "Issuer URL is required"),
+  clientId: z.string().min(1, "Client ID is required"),
+  clientSecret: z.string().min(1, "Client Secret is required"),
+  usernameClaim: z.string().min(1, "Username claim is required"),
+  autoCreateUsers: z.boolean(),
+  defaultRole: z.enum(["user", "admin"]),
+});
+
+export type OIDCSettingsInput = z.infer<typeof oidcSettingsSchema>;
