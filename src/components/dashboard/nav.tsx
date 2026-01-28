@@ -76,7 +76,7 @@ export function DashboardNav({ user }: DashboardNavProps) {
 
   const handleLogout = async () => {
     await fetch("/api/auth/logout", { method: "POST" });
-    router.push("/login");
+    router.push("/login?logout=1");
     router.refresh();
   };
 

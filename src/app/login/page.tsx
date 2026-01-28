@@ -186,6 +186,11 @@ function LoginPageContent() {
       return;
     }
 
+    // Skip auto-trigger if user came from error or logout (prevents redirect loop)
+    if (searchParams.get("error") || searchParams.get("logout")) {
+      return;
+    }
+
     autoTriggerInitiated.current = true;
 
     // OIDC auto-trigger - redirect immediately without delay
@@ -211,7 +216,7 @@ function LoginPageContent() {
       };
       performAutoTrigger();
     }
-  }, [handlePasskeyLogin, hasAutoTriggered, isPasskeyLoading, loginMethods]);
+  }, [handlePasskeyLogin, hasAutoTriggered, isPasskeyLoading, loginMethods, searchParams]);
 
   async function onSubmit(data: LoginInput) {
     setIsLoading(true);
