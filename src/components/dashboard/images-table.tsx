@@ -6,14 +6,16 @@ import {
   ChevronRight,
   Container,
   Cpu,
+  Filter,
   Hash,
   Layers,
   Tag,
   Trash2,
   User,
+  X,
 } from "lucide-react";
 import Link from "next/link";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -31,6 +33,13 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import {
   Table,
   TableBody,
@@ -69,6 +78,7 @@ interface ImagesTableProps {
   repositories?: UserRepository[];
   groupedRepositories?: Record<string, UserRepository[]>;
   isAdmin: boolean;
+  userNamespaces?: string[];
 }
 
 function formatBytes(bytes: number): string {
@@ -115,6 +125,7 @@ export function ImagesTable({
   repositories = [],
   groupedRepositories,
   isAdmin,
+  userNamespaces = [],
 }: ImagesTableProps) {
   const [expandedNamespaces, setExpandedNamespaces] = useState<Set<string>>(
     new Set(),
@@ -133,6 +144,63 @@ export function ImagesTable({
     tagCount: number;
   }>({ open: false, repository: "", imageCount: 0, tagCount: 0 });
   const [isDeleting, setIsDeleting] = useState(false);
+
+  // Get all namespaces from grouped repositories (memoized)
+  const allNamespaces = useMemo(() => {
+    if (!groupedRepositories) return [];
+    return Object.keys(groupedRepositories).sort();
+  }, [groupedRepositories]);
+
+  // Default filter state - show user's namespaces by default
+  const [selectedNamespace, setSelectedNamespace] =
+    useState<string>("my-namespaces");
+
+  // Filter namespaces based on selection
+  // Only show namespaces that actually have repositories in the registry
+  const namespaces = useMemo(() => {
+    if (!isAdmin || !groupedRepositories) return [];
+
+    // Filter to only namespaces with actual repositories
+    const availableNamespaces = allNamespaces.filter(
+      (ns) => groupedRepositories[ns],
+    );
+
+    if (selectedNamespace === "all") return availableNamespaces;
+    if (selectedNamespace === "my-namespaces") {
+      // Filter user namespaces to only those with repositories
+      const userNsWithRepos = userNamespaces.filter(
+        (ns) => groupedRepositories[ns],
+      );
+      return userNsWithRepos.length > 0 ? userNsWithRepos : availableNamespaces;
+    }
+    return availableNamespaces.filter((ns) => ns === selectedNamespace);
+  }, [
+    allNamespaces,
+    selectedNamespace,
+    userNamespaces,
+    isAdmin,
+    groupedRepositories,
+  ]);
+
+  // Calculate stats for filtered view
+  const stats = useMemo(() => {
+    if (!isAdmin || !groupedRepositories)
+      return { totalRepos: 0, totalImages: 0, totalTags: 0 };
+    return namespaces.reduce(
+      (acc, ns) => {
+        const repos = groupedRepositories[ns];
+        // Skip if namespace has no repositories in registry
+        if (!repos) return acc;
+        repos.forEach((repo) => {
+          acc.totalRepos++;
+          acc.totalImages += repo.imageCount;
+          acc.totalTags += repo.tagCount;
+        });
+        return acc;
+      },
+      { totalRepos: 0, totalImages: 0, totalTags: 0 },
+    );
+  }, [namespaces, groupedRepositories, isAdmin]);
 
   const toggleNamespace = (namespace: string) => {
     const newExpanded = new Set(expandedNamespaces);
@@ -465,9 +533,7 @@ export function ImagesTable({
 
   // Admin view with grouped repositories
   if (isAdmin && groupedRepositories) {
-    const namespaces = Object.keys(groupedRepositories).sort();
-
-    if (namespaces.length === 0) {
+    if (allNamespaces.length === 0) {
       return (
         <Card>
           <CardHeader className="px-4 sm:px-6">
@@ -494,18 +560,89 @@ export function ImagesTable({
     return (
       <>
         <Card>
-          <CardHeader className="px-4 sm:px-6">
-            <CardTitle className="text-base sm:text-lg">
-              All Repositories
-            </CardTitle>
-            <CardDescription className="text-xs sm:text-sm">
-              Container images grouped by user namespace
-            </CardDescription>
+          <CardHeader className="px-4 sm:px-6 space-y-4">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+              <div>
+                <CardTitle className="text-base sm:text-lg">
+                  {selectedNamespace === "all"
+                    ? "All Repositories"
+                    : selectedNamespace === "my-namespaces"
+                      ? "My Repositories"
+                      : `${selectedNamespace}/ Repositories`}
+                </CardTitle>
+                <CardDescription className="text-xs sm:text-sm">
+                  {selectedNamespace === "all"
+                    ? "Container images from all users"
+                    : selectedNamespace === "my-namespaces"
+                      ? "Your container images"
+                      : `Container images in ${selectedNamespace} namespace`}
+                </CardDescription>
+              </div>
+              <div className="flex flex-wrap items-center gap-2">
+                <Badge variant="secondary" className="text-xs">
+                  {stats.totalRepos}{" "}
+                  {stats.totalRepos === 1 ? "repository" : "repositories"}
+                </Badge>
+                <Badge variant="outline" className="gap-1 text-xs">
+                  <Hash className="h-3 w-3" />
+                  {stats.totalImages}{" "}
+                  {stats.totalImages === 1 ? "image" : "images"}
+                </Badge>
+                <Badge variant="outline" className="gap-1 text-xs">
+                  <Tag className="h-3 w-3" />
+                  {stats.totalTags} {stats.totalTags === 1 ? "tag" : "tags"}
+                </Badge>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-2">
+              <Filter className="h-4 w-4 text-muted-foreground" />
+              <Select
+                value={selectedNamespace}
+                onValueChange={setSelectedNamespace}
+              >
+                <SelectTrigger className="w-[220px]">
+                  <SelectValue placeholder="Show images from..." />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Users</SelectItem>
+                  {userNamespaces.length > 0 && (
+                    <SelectItem value="my-namespaces">
+                      My Images ({userNamespaces.length} namespaces)
+                    </SelectItem>
+                  )}
+                  {allNamespaces.length > 0 && (
+                    <>
+                      <div className="px-2 py-1.5 text-xs font-medium text-muted-foreground">
+                        All Namespaces
+                      </div>
+                      {allNamespaces.map((ns) => (
+                        <SelectItem key={ns} value={ns}>
+                          {ns}/
+                        </SelectItem>
+                      ))}
+                    </>
+                  )}
+                </SelectContent>
+              </Select>
+              {selectedNamespace !== "my-namespaces" && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setSelectedNamespace("my-namespaces")}
+                >
+                  <X className="h-4 w-4 mr-1" />
+                  Reset
+                </Button>
+              )}
+            </div>
           </CardHeader>
           <CardContent className="p-0">
             <div className="divide-y">
               {namespaces.map((namespace) => {
                 const repos = groupedRepositories[namespace];
+                // Skip namespaces that don't have repositories in registry yet
+                if (!repos) return null;
                 const isExpanded = expandedNamespaces.has(namespace);
                 const totalImages = repos.reduce(
                   (sum, r) => sum + r.imageCount,

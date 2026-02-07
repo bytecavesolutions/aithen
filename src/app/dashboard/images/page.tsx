@@ -1,3 +1,4 @@
+import { eq } from "drizzle-orm";
 import { Container, Hash, Package, RefreshCw, Tag } from "lucide-react";
 import { redirect } from "next/navigation";
 import { ImagesTable } from "@/components/dashboard/images-table";
@@ -10,6 +11,8 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import { db } from "@/db";
+import { namespaces } from "@/db/schema";
 import { getCurrentUser } from "@/lib/auth";
 import {
   checkRegistryHealth,
@@ -44,6 +47,17 @@ export default async function ImagesPage() {
   let totalTags = 0;
   let totalRepos = 0;
   let namespaceCount = 0;
+
+  // Get user's namespaces from database
+  let userNamespaces: string[] = [];
+  try {
+    const userNs = await db.query.namespaces.findMany({
+      where: eq(namespaces.userId, user.id),
+    });
+    userNamespaces = userNs.map((ns) => ns.name).sort();
+  } catch (error) {
+    console.error("Error fetching user namespaces:", error);
+  }
 
   if (isHealthy) {
     try {
@@ -214,6 +228,7 @@ export default async function ImagesPage() {
             <ImagesTable
               groupedRepositories={groupedRepositories}
               isAdmin={true}
+              userNamespaces={userNamespaces}
             />
           ) : (
             <ImagesTable repositories={repositories} isAdmin={false} />
