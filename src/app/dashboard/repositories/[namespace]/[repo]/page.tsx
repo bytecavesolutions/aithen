@@ -310,7 +310,7 @@ export default async function RepositoryPage({ params }: RepositoryPageProps) {
                   /^https?:\/\//,
                   "",
                 ).split(":")[0] || "localhost"}
-                :5000/{fullName}:{tag}
+                /{fullName}:{tag}
               </p>
             ))}
             {repository.tags.length > 3 && (

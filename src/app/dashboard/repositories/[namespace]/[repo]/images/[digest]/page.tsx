@@ -497,7 +497,7 @@ export default async function ImageDetailPage({
                   /^https?:\/\//,
                   "",
                 ).split(":")[0] || "localhost"}
-                :5000/{fullName}@{manifest.digest}
+                /{fullName}@{manifest.digest}
               </p>
             </div>
             {manifest.tags.length > 0 && (
@@ -509,7 +509,7 @@ export default async function ImageDetailPage({
                     /^https?:\/\//,
                     "",
                   ).split(":")[0] || "localhost"}
-                  :5000/{fullName}:{manifest.tags[0]}
+                  /{fullName}:{manifest.tags[0]}
                 </p>
               </div>
             )}

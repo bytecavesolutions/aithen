@@ -6,7 +6,6 @@ import {
   ChevronRight,
   Container,
   Cpu,
-  ExternalLink,
   Hash,
   Layers,
   Tag,
@@ -399,9 +398,13 @@ export function ImagesTable({
               <Container className="h-4 w-4 text-muted-foreground" />
             </div>
             <div className="flex flex-col sm:flex-row sm:items-center gap-1.5 sm:gap-3 min-w-0 flex-1">
-              <span className="font-medium font-mono text-sm sm:text-base truncate">
+              <Link
+                href={`/dashboard/repositories/${repo.namespace}/${repo.name}`}
+                className="font-medium font-mono text-sm sm:text-base truncate hover:underline"
+                onClick={(e) => e.stopPropagation()}
+              >
                 {displayName}
-              </span>
+              </Link>
               <div className="flex flex-wrap items-center gap-1.5">
                 <Badge variant="secondary" className="gap-1 text-xs">
                   <Hash className="h-3 w-3" />
@@ -430,12 +433,6 @@ export function ImagesTable({
             >
               <Trash2 className="h-4 w-4" />
             </Button>
-            <Link
-              href={`/dashboard/repositories/${repo.namespace}/${repo.name}`}
-              className="text-muted-foreground hover:text-foreground"
-            >
-              <ExternalLink className="h-4 w-4" />
-            </Link>
           </div>
         </div>
 
