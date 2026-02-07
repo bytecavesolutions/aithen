@@ -15,6 +15,7 @@ import {
   X,
 } from "lucide-react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useMemo, useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -127,6 +128,7 @@ export function ImagesTable({
   isAdmin,
   userNamespaces = [],
 }: ImagesTableProps) {
+  const router = useRouter();
   const [expandedNamespaces, setExpandedNamespaces] = useState<Set<string>>(
     new Set(),
   );
@@ -238,9 +240,9 @@ export function ImagesTable({
       });
 
       if (response.ok) {
-        console.log(`[ImagesTable] Delete successful, reloading page`);
+        console.log(`[ImagesTable] Delete successful, refreshing data`);
         // Refresh the page to show updated data
-        window.location.reload();
+        router.refresh();
       } else {
         // Try to parse JSON, but handle non-JSON responses gracefully
         let errorMessage = `Failed to delete image (HTTP ${response.status})`;
@@ -291,10 +293,10 @@ export function ImagesTable({
 
       if (response.ok) {
         console.log(
-          `[ImagesTable] Delete repository successful, reloading page`,
+          `[ImagesTable] Delete repository successful, refreshing data`,
         );
         // Refresh the page to show updated data
-        window.location.reload();
+        router.refresh();
       } else {
         let errorMessage = `Failed to delete repository (HTTP ${response.status})`;
         try {
@@ -601,7 +603,7 @@ export function ImagesTable({
                 value={selectedNamespace}
                 onValueChange={setSelectedNamespace}
               >
-                <SelectTrigger className="w-[220px]">
+                <SelectTrigger className="w-55">
                   <SelectValue placeholder="Show images from..." />
                 </SelectTrigger>
                 <SelectContent>
