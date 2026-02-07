@@ -25,7 +25,7 @@ export async function GET() {
     console.error("Error fetching login methods config:", error);
     return NextResponse.json(
       { error: "Internal server error" },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }
@@ -48,7 +48,7 @@ export async function PUT(request: Request) {
     if (!result.success) {
       return NextResponse.json(
         { error: "Invalid input", details: result.error.flatten() },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
@@ -62,7 +62,7 @@ export async function PUT(request: Request) {
           error:
             "At least one login method must be enabled. Enable OIDC/SSO first if you want to disable password and passkey login.",
         },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
@@ -73,7 +73,7 @@ export async function PUT(request: Request) {
           error:
             "Cannot set auto-trigger to passkey when passkey login is disabled",
         },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
@@ -83,7 +83,7 @@ export async function PUT(request: Request) {
           error:
             "Cannot set auto-trigger to OIDC when OIDC/SSO is not enabled. Configure OIDC first.",
         },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
@@ -94,7 +94,7 @@ export async function PUT(request: Request) {
     console.error("Error saving login methods config:", error);
     return NextResponse.json(
       { error: "Internal server error" },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }

@@ -1,4 +1,4 @@
-import { eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import { NextResponse } from "next/server";
 import { db, schema } from "@/db";
 import {
@@ -23,10 +23,19 @@ export async function GET() {
         id: true,
         name: true,
         permissions: true,
+        namespaceId: true,
         createdAt: true,
         lastUsedAt: true,
         expiresAt: true,
         // Exclude tokenHash for security
+      },
+      with: {
+        namespace: {
+          columns: {
+            id: true,
+            name: true,
+          },
+        },
       },
     });
 
@@ -58,7 +67,27 @@ export async function POST(request: Request) {
       );
     }
 
-    const { name, permissions, expiresInDays } = result.data;
+    const { name, permissions, namespaceId, expiresInDays } = result.data;
+
+    // If namespaceId is provided, verify the user owns that namespace
+    if (namespaceId) {
+      const namespace = await db.query.namespaces.findFirst({
+        where: and(
+          eq(schema.namespaces.id, namespaceId),
+          eq(schema.namespaces.userId, currentUser.id),
+        ),
+      });
+
+      if (!namespace) {
+        return NextResponse.json(
+          {
+            error:
+              "Namespace not found or you don't have permission to access it",
+          },
+          { status: 403 },
+        );
+      }
+    }
 
     // Generate a unique token
     const rawToken = generateAccessToken();
@@ -74,6 +103,7 @@ export async function POST(request: Request) {
     await db.insert(schema.accessTokens).values({
       id: tokenId,
       userId: currentUser.id,
+      namespaceId: namespaceId || null,
       name,
       tokenHash,
       permissions: permissions.join(","),

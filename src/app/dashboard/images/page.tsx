@@ -99,7 +99,9 @@ export default async function ImagesPage() {
     <div className="space-y-6">
       <div className="flex items-center justify-between gap-4">
         <div className="min-w-0 flex-1">
-          <h1 className="text-2xl sm:text-3xl font-bold tracking-tight">Images</h1>
+          <h1 className="text-2xl sm:text-3xl font-bold tracking-tight">
+            Images
+          </h1>
           <p className="text-sm text-muted-foreground truncate">
             {user.role === "admin"
               ? "Manage all container images"

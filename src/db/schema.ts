@@ -61,6 +61,9 @@ export const accessTokens = sqliteTable("access_tokens", {
   userId: integer("user_id")
     .notNull()
     .references(() => users.id, { onDelete: "cascade" }),
+  namespaceId: integer("namespace_id").references(() => namespaces.id, {
+    onDelete: "cascade",
+  }),
   name: text("name").notNull(),
   tokenHash: text("token_hash").notNull().unique(),
   permissions: text("permissions").notNull().default("pull"),
@@ -185,9 +188,21 @@ export const oauthAccountsRelations = relations(oauthAccounts, ({ one }) => ({
   }),
 }));
 
-export const namespacesRelations = relations(namespaces, ({ one }) => ({
+export const namespacesRelations = relations(namespaces, ({ one, many }) => ({
   user: one(users, {
     fields: [namespaces.userId],
     references: [users.id],
+  }),
+  accessTokens: many(accessTokens),
+}));
+
+export const accessTokensRelations = relations(accessTokens, ({ one }) => ({
+  user: one(users, {
+    fields: [accessTokens.userId],
+    references: [users.id],
+  }),
+  namespace: one(namespaces, {
+    fields: [accessTokens.namespaceId],
+    references: [namespaces.id],
   }),
 }));

@@ -217,7 +217,9 @@ export function LoginMethodsSettings() {
                   <span>Enabled</span>
                 </div>
               ) : (
-                <span className="text-sm text-muted-foreground">Not configured</span>
+                <span className="text-sm text-muted-foreground">
+                  Not configured
+                </span>
               )}
             </div>
 
@@ -227,19 +229,19 @@ export function LoginMethodsSettings() {
               render={({ field }) => (
                 <FormItem>
                   <FormLabel>Auto-trigger on Login Page</FormLabel>
-                  <Select
-                    onValueChange={field.onChange}
-                    value={field.value}
-                  >
+                  <Select onValueChange={field.onChange} value={field.value}>
                     <FormControl>
                       <SelectTrigger>
                         <SelectValue placeholder="Select auto-trigger behavior" />
                       </SelectTrigger>
                     </FormControl>
                     <SelectContent>
-                      <SelectItem value="none">None - Show all options</SelectItem>
+                      <SelectItem value="none">
+                        None - Show all options
+                      </SelectItem>
                       <SelectItem value="passkey" disabled={!passkeyEnabled}>
-                        Passkey {passkeyEnabled ? "(Recommended)" : "(Disabled)"}
+                        Passkey{" "}
+                        {passkeyEnabled ? "(Recommended)" : "(Disabled)"}
                       </SelectItem>
                       <SelectItem value="oidc" disabled={!oidcEnabled}>
                         OIDC/SSO {oidcEnabled ? "" : "(Not configured)"}

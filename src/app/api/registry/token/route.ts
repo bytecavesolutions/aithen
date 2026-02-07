@@ -1,6 +1,7 @@
 import { eq } from "drizzle-orm";
 import { NextResponse } from "next/server";
 import { db, schema } from "@/db";
+import type { AccessToken } from "@/db/schema";
 import { verifyAccessToken, verifyPassword } from "@/lib/auth";
 import {
   createRegistryToken,
@@ -127,6 +128,7 @@ export async function GET(request: Request) {
       : false;
     let isAccessToken = false;
     let tokenPermissions: string[] = [];
+    let matchedToken: AccessToken | null = null;
 
     // If password fails and input looks like an access token, try token authentication
     if (!passwordValid && password.startsWith("ait_")) {
@@ -147,6 +149,7 @@ export async function GET(request: Request) {
           passwordValid = true;
           isAccessToken = true;
           tokenPermissions = token.permissions.split(",");
+          matchedToken = token;
 
           // Update last used timestamp
           await db
@@ -169,7 +172,7 @@ export async function GET(request: Request) {
     const parsedScopes = parseScopes(scope);
     const isAdmin = user.role === "admin";
 
-    // If using an access token, filter actions by token permissions
+    // If using an access token, filter actions by token permissions and namespace scope
     let grantedAccess: TokenAccess[];
     if (isAccessToken && tokenPermissions.length > 0) {
       const fullAccess = await generateGrantedAccess(
@@ -177,7 +180,9 @@ export async function GET(request: Request) {
         username,
         isAdmin,
       );
-      grantedAccess = fullAccess
+
+      // Filter by token permissions
+      let filteredByPermissions = fullAccess
         .map((access) => ({
           ...access,
           // Filter actions to only those allowed by the token
@@ -190,6 +195,29 @@ export async function GET(request: Request) {
           ) as ("push" | "pull" | "delete" | "*")[],
         }))
         .filter((access) => access.actions.length > 0);
+
+      // Filter by namespace scope if token has namespaceId (namespace-scoped token)
+      if (matchedToken?.namespaceId) {
+        // Get the namespace name for this token's namespaceId
+        const tokenNamespace = await db.query.namespaces.findFirst({
+          where: eq(schema.namespaces.id, matchedToken.namespaceId),
+          columns: { name: true },
+        });
+
+        if (tokenNamespace) {
+          const tokenNamespaceLower = tokenNamespace.name.toLowerCase();
+
+          // Only allow access to repositories in the token's namespace
+          filteredByPermissions = filteredByPermissions.filter((access) => {
+            if (access.type !== "repository") return true; // Allow registry/catalog access
+
+            const repoNamespace = access.name.split("/")[0]?.toLowerCase();
+            return repoNamespace === tokenNamespaceLower;
+          });
+        }
+      }
+
+      grantedAccess = filteredByPermissions;
     } else {
       grantedAccess = await generateGrantedAccess(
         parsedScopes,
@@ -339,6 +367,7 @@ export async function POST(request: Request) {
         : false;
       let isAccessToken = false;
       let tokenPermissions: string[] = [];
+      let matchedToken: AccessToken | null = null;
 
       // If password fails and input looks like an access token, try token authentication
       if (!passwordValid && password.startsWith("ait_")) {
@@ -359,6 +388,7 @@ export async function POST(request: Request) {
             passwordValid = true;
             isAccessToken = true;
             tokenPermissions = token.permissions.split(",");
+            matchedToken = token;
 
             // Update last used timestamp
             await db
@@ -383,7 +413,7 @@ export async function POST(request: Request) {
       const parsedScopes = parseScopes(scope);
       const isAdmin = user.role === "admin";
 
-      // If using an access token, filter actions by token permissions
+      // If using an access token, filter actions by token permissions and namespace scope
       let grantedAccess: TokenAccess[];
       if (isAccessToken && tokenPermissions.length > 0) {
         const fullAccess = await generateGrantedAccess(
@@ -391,7 +421,9 @@ export async function POST(request: Request) {
           username,
           isAdmin,
         );
-        grantedAccess = fullAccess
+
+        // Filter by token permissions
+        let filteredByPermissions = fullAccess
           .map((access) => ({
             ...access,
             // Filter actions to only those allowed by the token
@@ -404,6 +436,29 @@ export async function POST(request: Request) {
             ) as ("push" | "pull" | "delete" | "*")[],
           }))
           .filter((access) => access.actions.length > 0);
+
+        // Filter by namespace scope if token has namespaceId (namespace-scoped token)
+        if (matchedToken?.namespaceId) {
+          // Get the namespace name for this token's namespaceId
+          const tokenNamespace = await db.query.namespaces.findFirst({
+            where: eq(schema.namespaces.id, matchedToken.namespaceId),
+            columns: { name: true },
+          });
+
+          if (tokenNamespace) {
+            const tokenNamespaceLower = tokenNamespace.name.toLowerCase();
+
+            // Only allow access to repositories in the token's namespace
+            filteredByPermissions = filteredByPermissions.filter((access) => {
+              if (access.type !== "repository") return true; // Allow registry/catalog access
+
+              const repoNamespace = access.name.split("/")[0]?.toLowerCase();
+              return repoNamespace === tokenNamespaceLower;
+            });
+          }
+        }
+
+        grantedAccess = filteredByPermissions;
       } else {
         grantedAccess = await generateGrantedAccess(
           parsedScopes,

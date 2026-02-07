@@ -68,7 +68,9 @@ function LoginPageContent() {
   const [isOIDCLoading, setIsOIDCLoading] = useState(false);
   const [hasAutoTriggered, setHasAutoTriggered] = useState(false);
   const [isAutoTrigger, setIsAutoTrigger] = useState(false);
-  const [loginMethods, setLoginMethods] = useState<LoginMethodsStatus | null>(null);
+  const [loginMethods, setLoginMethods] = useState<LoginMethodsStatus | null>(
+    null,
+  );
   const autoTriggerInitiated = useRef(false);
 
   // Check for error in URL params (from OIDC callback)
@@ -128,7 +130,9 @@ function LoginPageContent() {
 
       if (!optionsResponse.ok) {
         const errorData = await optionsResponse.json();
-        throw new Error(errorData.details || "Failed to get authentication options");
+        throw new Error(
+          errorData.details || "Failed to get authentication options",
+        );
       }
 
       const options = await optionsResponse.json();
@@ -226,7 +230,13 @@ function LoginPageContent() {
       };
       performAutoTrigger();
     }
-  }, [handlePasskeyLogin, hasAutoTriggered, isPasskeyLoading, loginMethods, searchParams]);
+  }, [
+    handlePasskeyLogin,
+    hasAutoTriggered,
+    isPasskeyLoading,
+    loginMethods,
+    searchParams,
+  ]);
 
   async function onSubmit(data: LoginInput) {
     setIsLoading(true);
@@ -327,17 +337,17 @@ function LoginPageContent() {
               {/* Divider - shown when password is enabled and other methods are also available */}
               {loginMethods?.passwordEnabled &&
                 (loginMethods?.oidcEnabled || loginMethods?.passkeyEnabled) && (
-                <div className="relative">
-                  <div className="absolute inset-0 flex items-center">
-                    <span className="w-full border-t" />
+                  <div className="relative">
+                    <div className="absolute inset-0 flex items-center">
+                      <span className="w-full border-t" />
+                    </div>
+                    <div className="relative flex justify-center text-xs uppercase">
+                      <span className="bg-background px-2 text-muted-foreground">
+                        Or continue with
+                      </span>
+                    </div>
                   </div>
-                  <div className="relative flex justify-center text-xs uppercase">
-                    <span className="bg-background px-2 text-muted-foreground">
-                      Or continue with
-                    </span>
-                  </div>
-                </div>
-              )}
+                )}
 
               {/* Password login form - shown when password login is enabled */}
               {loginMethods?.passwordEnabled && (

@@ -82,13 +82,15 @@ export async function runMigrations(silent = false): Promise<void> {
     CREATE TABLE IF NOT EXISTS access_tokens (
       id TEXT PRIMARY KEY NOT NULL,
       user_id INTEGER NOT NULL,
+      namespace_id INTEGER,
       name TEXT NOT NULL,
       token_hash TEXT NOT NULL UNIQUE,
       permissions TEXT NOT NULL DEFAULT 'pull',
       last_used_at INTEGER,
       expires_at INTEGER,
       created_at INTEGER NOT NULL,
-      FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+      FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+      FOREIGN KEY (namespace_id) REFERENCES namespaces(id) ON DELETE CASCADE
     );
   `);
 
@@ -162,6 +164,21 @@ export async function runMigrations(silent = false): Promise<void> {
     );
   `);
 
+  // Migration: Add namespace_id column to access_tokens table (for existing databases)
+  // This must run BEFORE creating indexes on the new column
+  try {
+    db.run(
+      `ALTER TABLE access_tokens ADD COLUMN namespace_id INTEGER REFERENCES namespaces(id) ON DELETE CASCADE;`,
+    );
+    if (!silent) {
+      console.log(
+        "✅ Migration: Added namespace_id column to access_tokens table",
+      );
+    }
+  } catch (_error) {
+    // Column already exists, ignore error
+  }
+
   // Create indexes for better performance
   db.run(`
     CREATE INDEX IF NOT EXISTS idx_users_username ON users(username);
@@ -173,6 +190,7 @@ export async function runMigrations(silent = false): Promise<void> {
     CREATE INDEX IF NOT EXISTS idx_access_tokens_user_id ON access_tokens(user_id);
     CREATE UNIQUE INDEX IF NOT EXISTS access_tokens_token_hash_unique ON access_tokens(token_hash);
     CREATE INDEX IF NOT EXISTS idx_access_tokens_expires_at ON access_tokens(expires_at);
+    CREATE INDEX IF NOT EXISTS idx_access_tokens_namespace_id ON access_tokens(namespace_id);
     CREATE INDEX IF NOT EXISTS idx_namespaces_user_id ON namespaces(user_id);
     CREATE UNIQUE INDEX IF NOT EXISTS namespaces_name_unique ON namespaces(name);
     CREATE INDEX IF NOT EXISTS idx_namespaces_is_default ON namespaces(is_default);

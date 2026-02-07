@@ -30,10 +30,17 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 
+interface Namespace {
+  id: number;
+  name: string;
+}
+
 interface AccessToken {
   id: string;
   name: string;
   permissions: string;
+  namespaceId: number | null;
+  namespace: Namespace | null;
   createdAt: Date;
   lastUsedAt: Date | null;
   expiresAt: Date | null;
@@ -59,7 +66,10 @@ export function AccessTokenSettings() {
   const [selectedPermissions, setSelectedPermissions] = useState<string[]>([
     "pull",
   ]);
+  const [selectedNamespace, setSelectedNamespace] = useState<string>("global");
   const [expiresInDays, setExpiresInDays] = useState<string>("never");
+  const [namespaces, setNamespaces] = useState<Namespace[]>([]);
+  const [isLoadingNamespaces, setIsLoadingNamespaces] = useState(false);
 
   // Created token display
   const [createdToken, setCreatedToken] = useState<CreatedToken | null>(null);
@@ -76,6 +86,21 @@ export function AccessTokenSettings() {
       console.error("Failed to fetch access tokens:", err);
     } finally {
       setIsLoading(false);
+    }
+  }, []);
+
+  const fetchNamespaces = useCallback(async () => {
+    setIsLoadingNamespaces(true);
+    try {
+      const response = await fetch("/api/namespaces");
+      if (response.ok) {
+        const data = await response.json();
+        setNamespaces(data.namespaces || []);
+      }
+    } catch (err) {
+      console.error("Failed to fetch namespaces:", err);
+    } finally {
+      setIsLoadingNamespaces(false);
     }
   }, []);
 
@@ -98,15 +123,27 @@ export function AccessTokenSettings() {
     setError(null);
 
     try {
+      const body: {
+        name: string;
+        permissions: string[];
+        expiresInDays?: number;
+        namespaceId?: number;
+      } = {
+        name: newTokenName.trim(),
+        permissions: selectedPermissions,
+        expiresInDays:
+          expiresInDays === "never" ? undefined : Number(expiresInDays),
+      };
+
+      // Only add namespaceId if a specific namespace is selected (not global)
+      if (selectedNamespace !== "global") {
+        body.namespaceId = Number(selectedNamespace);
+      }
+
       const response = await fetch("/api/auth/access-tokens", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          name: newTokenName.trim(),
-          permissions: selectedPermissions,
-          expiresInDays:
-            expiresInDays === "never" ? undefined : Number(expiresInDays),
-        }),
+        body: JSON.stringify(body),
       });
 
       const result = await response.json();
@@ -118,6 +155,7 @@ export function AccessTokenSettings() {
       setCreatedToken(result.token);
       setNewTokenName("");
       setSelectedPermissions(["pull"]);
+      setSelectedNamespace("global");
       setExpiresInDays("never");
       await fetchTokens();
     } catch (err) {
@@ -170,6 +208,7 @@ export function AccessTokenSettings() {
     setCreatedToken(null);
     setNewTokenName("");
     setSelectedPermissions(["pull"]);
+    setSelectedNamespace("global");
     setExpiresInDays("never");
     setError(null);
     setCopied(false);
@@ -247,6 +286,7 @@ export function AccessTokenSettings() {
                 handleDialogClose();
               } else {
                 setIsCreateOpen(true);
+                fetchNamespaces();
               }
             }}
           >
@@ -409,6 +449,39 @@ export function AccessTokenSettings() {
                       </p>
                     </div>
                     <div className="space-y-2">
+                      <Label htmlFor="namespace">Namespace (Optional)</Label>
+                      <Select
+                        value={selectedNamespace}
+                        onValueChange={setSelectedNamespace}
+                        disabled={isCreating || isLoadingNamespaces}
+                      >
+                        <SelectTrigger id="namespace">
+                          <SelectValue
+                            placeholder={
+                              isLoadingNamespaces
+                                ? "Loading namespaces..."
+                                : "All namespaces (global token)"
+                            }
+                          />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="global">
+                            All namespaces (global token)
+                          </SelectItem>
+                          {namespaces.map((ns) => (
+                            <SelectItem key={ns.id} value={String(ns.id)}>
+                              {ns.name}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <p className="text-xs text-muted-foreground">
+                        Select a namespace to restrict this token to only that
+                        namespace. Select "All namespaces" for global access to
+                        all your namespaces.
+                      </p>
+                    </div>
+                    <div className="space-y-2">
                       <Label htmlFor="expires">Expiration</Label>
                       <Select
                         value={expiresInDays}
@@ -505,6 +578,18 @@ export function AccessTokenSettings() {
                                 </Badge>
                               );
                             })}
+                            {token.namespace && (
+                              <Badge variant="outline" className="gap-1 ml-1">
+                                <span className="text-xs">
+                                  NS: {token.namespace.name}
+                                </span>
+                              </Badge>
+                            )}
+                            {!token.namespace && (
+                              <Badge variant="outline" className="gap-1 ml-1">
+                                <span className="text-xs">Global</span>
+                              </Badge>
+                            )}
                           </div>
                         </div>
                         <p className="text-xs text-muted-foreground mt-1">

@@ -1,7 +1,7 @@
 import { eq } from "drizzle-orm";
 import { db, schema } from "@/db";
-import type { LoginMethodsSettingsInput } from "./validations";
 import { getOIDCConfig } from "./oidc";
+import type { LoginMethodsSettingsInput } from "./validations";
 
 export interface LoginMethodsSettings {
   passwordEnabled: boolean;
@@ -41,7 +41,7 @@ export async function getLoginMethodsConfig(): Promise<LoginMethodsSettings> {
  * Save login methods configuration to database
  */
 export async function saveLoginMethodsConfig(
-  config: LoginMethodsSettingsInput
+  config: LoginMethodsSettingsInput,
 ): Promise<void> {
   const value = JSON.stringify(config);
 

@@ -399,7 +399,9 @@ export function ImagesTable({
               <Container className="h-4 w-4 text-muted-foreground" />
             </div>
             <div className="flex flex-col sm:flex-row sm:items-center gap-1.5 sm:gap-3 min-w-0 flex-1">
-              <span className="font-medium font-mono text-sm sm:text-base truncate">{displayName}</span>
+              <span className="font-medium font-mono text-sm sm:text-base truncate">
+                {displayName}
+              </span>
               <div className="flex flex-wrap items-center gap-1.5">
                 <Badge variant="secondary" className="gap-1 text-xs">
                   <Hash className="h-3 w-3" />
@@ -444,10 +446,14 @@ export function ImagesTable({
                 <TableRow>
                   <TableHead className="pl-8 sm:pl-16">Digest</TableHead>
                   <TableHead>Tags</TableHead>
-                  <TableHead className="hidden sm:table-cell">Architecture</TableHead>
+                  <TableHead className="hidden sm:table-cell">
+                    Architecture
+                  </TableHead>
                   <TableHead className="hidden md:table-cell">Layers</TableHead>
                   <TableHead className="text-right">Size</TableHead>
-                  <TableHead className="text-right w-16 sm:w-20">Actions</TableHead>
+                  <TableHead className="text-right w-16 sm:w-20">
+                    Actions
+                  </TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -468,8 +474,12 @@ export function ImagesTable({
       return (
         <Card>
           <CardHeader className="px-4 sm:px-6">
-            <CardTitle className="text-base sm:text-lg">All Repositories</CardTitle>
-            <CardDescription className="text-xs sm:text-sm">Container images from all users</CardDescription>
+            <CardTitle className="text-base sm:text-lg">
+              All Repositories
+            </CardTitle>
+            <CardDescription className="text-xs sm:text-sm">
+              Container images from all users
+            </CardDescription>
           </CardHeader>
           <CardContent className="px-4 sm:px-6">
             <div className="flex flex-col items-center justify-center py-10 text-muted-foreground">
@@ -488,7 +498,9 @@ export function ImagesTable({
       <>
         <Card>
           <CardHeader className="px-4 sm:px-6">
-            <CardTitle className="text-base sm:text-lg">All Repositories</CardTitle>
+            <CardTitle className="text-base sm:text-lg">
+              All Repositories
+            </CardTitle>
             <CardDescription className="text-xs sm:text-sm">
               Container images grouped by user namespace
             </CardDescription>
@@ -525,7 +537,10 @@ export function ImagesTable({
                         </div>
                         <div className="flex flex-wrap items-center gap-1.5 sm:gap-2 ml-8 sm:ml-0">
                           {repos.some((r) => r.isOrphan) && (
-                            <Badge variant="destructive" className="gap-1 text-xs">
+                            <Badge
+                              variant="destructive"
+                              className="gap-1 text-xs"
+                            >
                               <AlertTriangle className="h-3 w-3" />
                               No Namespace
                             </Badge>
@@ -536,7 +551,8 @@ export function ImagesTable({
                           </Badge>
                           <Badge variant="outline" className="gap-1 text-xs">
                             <Hash className="h-3 w-3" />
-                            {totalImages} {totalImages === 1 ? "image" : "images"}
+                            {totalImages}{" "}
+                            {totalImages === 1 ? "image" : "images"}
                           </Badge>
                           <Badge variant="outline" className="gap-1 text-xs">
                             <Tag className="h-3 w-3" />
@@ -682,14 +698,20 @@ export function ImagesTable({
     return (
       <Card>
         <CardHeader className="px-4 sm:px-6">
-          <CardTitle className="text-base sm:text-lg">Your Repositories</CardTitle>
-          <CardDescription className="text-xs sm:text-sm">Container images in your namespace</CardDescription>
+          <CardTitle className="text-base sm:text-lg">
+            Your Repositories
+          </CardTitle>
+          <CardDescription className="text-xs sm:text-sm">
+            Container images in your namespace
+          </CardDescription>
         </CardHeader>
         <CardContent className="px-4 sm:px-6">
           <div className="flex flex-col items-center justify-center py-10 text-muted-foreground">
             <Container className="h-12 w-12 opacity-50" />
             <p className="mt-4 text-sm sm:text-base">No images yet</p>
-            <p className="text-xs sm:text-sm">Push your first image to get started</p>
+            <p className="text-xs sm:text-sm">
+              Push your first image to get started
+            </p>
           </div>
         </CardContent>
       </Card>
@@ -700,8 +722,12 @@ export function ImagesTable({
     <>
       <Card>
         <CardHeader className="px-4 sm:px-6">
-          <CardTitle className="text-base sm:text-lg">Your Repositories</CardTitle>
-          <CardDescription className="text-xs sm:text-sm">Container images in your namespace</CardDescription>
+          <CardTitle className="text-base sm:text-lg">
+            Your Repositories
+          </CardTitle>
+          <CardDescription className="text-xs sm:text-sm">
+            Container images in your namespace
+          </CardDescription>
         </CardHeader>
         <CardContent className="p-0">
           <div className="divide-y">

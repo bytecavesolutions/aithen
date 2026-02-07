@@ -13,7 +13,8 @@ export async function POST(_request: Request) {
       return NextResponse.json(
         {
           error: "Passkey login is disabled",
-          details: "Passkey authentication has been disabled by the administrator",
+          details:
+            "Passkey authentication has been disabled by the administrator",
         },
         { status: 403 },
       );

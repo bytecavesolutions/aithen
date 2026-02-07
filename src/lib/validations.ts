@@ -89,6 +89,11 @@ export const createAccessTokenSchema = z.object({
     .array(z.enum(["pull", "push", "delete"]))
     .min(1, "At least one permission is required")
     .default(["pull"]),
+  namespaceId: z
+    .number()
+    .int("Namespace ID must be a whole number")
+    .positive("Namespace ID must be positive")
+    .optional(),
   expiresInDays: z
     .number()
     .int("Expiration must be a whole number")
@@ -156,4 +161,6 @@ export const loginMethodsSettingsSchema = z.object({
   autoTrigger: z.enum(["none", "passkey", "oidc"]),
 });
 
-export type LoginMethodsSettingsInput = z.infer<typeof loginMethodsSettingsSchema>;
+export type LoginMethodsSettingsInput = z.infer<
+  typeof loginMethodsSettingsSchema
+>;

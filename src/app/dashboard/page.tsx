@@ -93,7 +93,9 @@ export default async function DashboardPage() {
     <div className="space-y-6">
       <div className="flex items-center justify-between gap-4">
         <div className="min-w-0 flex-1">
-          <h1 className="text-2xl sm:text-3xl font-bold tracking-tight">Dashboard</h1>
+          <h1 className="text-2xl sm:text-3xl font-bold tracking-tight">
+            Dashboard
+          </h1>
           <p className="text-sm text-muted-foreground truncate">
             Welcome back, {user?.username}!
           </p>
@@ -126,7 +128,9 @@ export default async function DashboardPage() {
 
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-xs sm:text-sm font-medium">Unique Images</CardTitle>
+            <CardTitle className="text-xs sm:text-sm font-medium">
+              Unique Images
+            </CardTitle>
             <Hash className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
@@ -139,7 +143,9 @@ export default async function DashboardPage() {
 
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-xs sm:text-sm font-medium">Total Tags</CardTitle>
+            <CardTitle className="text-xs sm:text-sm font-medium">
+              Total Tags
+            </CardTitle>
             <Tag className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
@@ -153,7 +159,9 @@ export default async function DashboardPage() {
         {user?.role === "admin" ? (
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-xs sm:text-sm font-medium">Total Users</CardTitle>
+              <CardTitle className="text-xs sm:text-sm font-medium">
+                Total Users
+              </CardTitle>
               <Users className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
